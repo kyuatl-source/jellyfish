@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.Python
+.env
+*.tmp
+*.swp
+.DS_Store
+weibo_checkpoint.json
+weibo_posts.json
+weibo_posts.csv
+tmi_results.json
+tmi_results.csv
+counseling_results.json
+counseling_results.csv

@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>追星助手 · 韩志薰</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --card: #fff;
+    --text: #2c2c2c;
+    --muted: #888;
+    --accent: #6c63ff;
+    --border: #e8e5df;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06);
+    --high: #22c55e;
+    --medium: #f59e0b;
+    --low: #94a3b8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    max-width: 800px; margin: 0 auto; padding: 20px;
+  }
+  h1 { font-size: 24px; text-align: center; margin-bottom: 6px }
+  .subtitle { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 20px }
+
+  /* Stats */
+  .stats {
+    display: flex; gap: 12px; justify-content: center; margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 20px; text-align: center;
+    min-width: 80px; box-shadow: var(--shadow);
+  }
+  .stat .num { font-size: 22px; font-weight: 700; color: var(--accent) }
+  .stat .label { font-size: 12px; color: var(--muted) }
+
+  /* Search */
+  .search-box {
+    display: flex; gap: 8px; margin-bottom: 16px;
+  }
+  .search-box input {
+    flex: 1; padding: 10px 16px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 15px; outline: none;
+    background: var(--card);
+  }
+  .search-box input:focus { border-color: var(--accent) }
+  .search-box button {
+    padding: 10px 20px; background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius); font-size: 15px; cursor: pointer;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .tab {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--card); font-size: 13px; cursor: pointer;
+    transition: all .2s;
+  }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent) }
+  .tab .count { opacity: .6; font-size: 11px; margin-left: 2px }
+
+  /* TMI cards */
+  .tmi-list { display: flex; flex-direction: column; gap: 10px }
+  .tmi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .tmi-card .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .tmi-card .cat {
+    font-size: 12px; padding: 2px 10px; border-radius: 12px;
+    background: #f0efff; color: var(--accent);
+  }
+  .confidence { font-size: 11px; padding: 2px 8px; border-radius: 10px }
+  .confidence.high { background: #dcfce7; color: #15803d }
+  .confidence.medium { background: #fef3c7; color: #b45309 }
+  .confidence.low { background: #f1f5f9; color: #64748b }
+  .tmi-card .content { font-size: 15px; margin-bottom: 4px }
+  .tmi-card .quote {
+    font-size: 13px; color: var(--muted); margin-top: 6px;
+    padding-left: 8px; border-left: 2px solid var(--accent);
+  }
+  .tmi-card .meta { font-size: 12px; color: var(--muted); margin-top: 4px }
+
+  /* Schedules */
+  .section-title { font-size: 18px; font-weight: 600; margin: 28px 0 14px }
+  .timeline { border-left: 2px solid var(--border); padding-left: 18px; margin-left: 8px }
+  .timeline-item { margin-bottom: 14px; position: relative }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -23px; top: 6px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .timeline-item .date { font-size: 13px; color: var(--accent); font-weight: 500 }
+  .timeline-item .title { font-size: 15px }
+  .timeline-item .detail { font-size: 13px; color: var(--muted) }
+
+  .empty { text-align: center; color: var(--muted); padding: 40px }
+  .loading { text-align: center; color: var(--muted); padding: 20px }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 14px; font-size: 13px; color: var(--muted);
+  }
+  .pagination button {
+    padding: 4px 12px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--card); cursor: pointer; font-size: 13px; color: var(--accent);
+    font-family: inherit;
+  }
+  .pagination button:hover { background: #f0efff; }
+  .pagination button:disabled { color: var(--muted); cursor: default; opacity: .5; }
+  .pagination .page-num { font-weight: 600; color: var(--accent); }
+
+  /* ── Admin mode styles ── */
+
+  /* Admin toggle button (fixed gear, bottom-right) */
+  .admin-toggle {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none;
+    font-size: 20px; cursor: pointer; z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    transition: transform .15s, opacity .15s;
+    display: flex; align-items: center; justify-content: center;
+    opacity: .65; line-height: 1;
+  }
+  .admin-toggle:hover { opacity: 1; transform: scale(1.06); }
+  .admin-toggle.active { background: #ef4444; }
+
+  /* Card action buttons (hidden by default, shown in admin mode) */
+  .tmi-card .actions { display: none; gap: 4px; align-items: center; }
+  .admin-on .tmi-card .actions { display: flex; }
+
+  .btn-icon {
+    padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--card); font-size: 11px; cursor: pointer; line-height: 1.4;
+    font-family: inherit;
+  }
+  .btn-icon.edit { color: var(--accent); }
+  .btn-icon.edit:hover { background: #f0efff; }
+  .btn-icon.del  { color: #ef4444; border-color: #fecaca; }
+  .btn-icon.del:hover  { background: #fef2f2; }
+
+  /* "Add new" dashed button */
+  .btn-new {
+    display: none; width: 100%; padding: 10px;
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    background: transparent; color: var(--muted); font-size: 14px;
+    cursor: pointer; margin-bottom: 10px; transition: all .2s;
+    font-family: inherit;
+  }
+  .admin-on .btn-new { display: block; }
+  .btn-new:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Inline edit form */
+  .edit-form { display: flex; flex-direction: column; gap: 8px; }
+  .edit-form textarea,
+  .edit-form input,
+  .edit-form select {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: inherit;
+    background: var(--bg); outline: none; resize: vertical;
+    color: var(--text);
+  }
+  .edit-form textarea:focus,
+  .edit-form input:focus,
+  .edit-form select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,99,255,.12); }
+  .edit-row { display: flex; gap: 8px; }
+  .edit-row > * { flex: 1; }
+  .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-save, .btn-cancel {
+    padding: 6px 16px; border-radius: var(--radius); font-size: 13px;
+    cursor: pointer; border: none; font-family: inherit;
+  }
+  .btn-save { background: var(--accent); color: #fff; }
+  .btn-save:hover { opacity: .9; }
+  .btn-cancel { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
+  .btn-cancel:hover { background: #e5e7eb; }
+
+  /* Card in edit mode */
+  .tmi-card.editing { border-color: var(--accent); }
+
+  /* Schedule actions in timeline items */
+  .timeline-item .sched-actions { display: none; gap: 4px; margin-top: 4px; }
+  .admin-on .timeline-item .sched-actions { display: flex; }
+
+  /* Admin-only elements */
+  .admin-only { display: none; }
+  .admin-on .admin-only { display: inline !important; }
+
+  /* Idol editor card */
+  #idolEditor { display: none; margin-bottom: 20px; }
+  .admin-on #idolEditor.show { display: block; }
+
+  /* Slightly widen card area for forms */
+  @media (max-width: 500px) {
+    .edit-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<h1>追星助手</h1>
+<div class="subtitle">
+  韩志薰 Jihoon · TWS
+  <span class="admin-only" style="font-size:12px;cursor:pointer;color:var(--accent);margin-left:8px"
+        onclick="showIdolEditor()">编辑信息</span>
+</div>
+
+<div id="idolEditor"></div>
+
+<div class="stats" id="stats"></div>
+
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="搜索 TMI，如：动森、练习生、姐姐…" />
+  <button onclick="doSearch()">搜索</button>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="tmi-list" id="tmiList"></div>
+
+<div class="section-title">烦恼商谈</div>
+<div class="tmi-list" id="counselingList"></div>
+
+<div class="section-title">行程时间线</div>
+<div class="timeline" id="timeline"></div>
+
+<!-- Admin toggle button -->
+<button class="admin-toggle" id="adminToggle" onclick="toggleAdminMode()" title="管理">⚙</button>
+
+<script>
+const API = '/api';
+let adminMode = false;
+let allCategories = [];
+let tmiData = [];
+let counselingData = [];
+let scheduleData = [];
+let currentFilter = null;
+
+const PAGE_SIZE = 15;
+let tmiPage = 1;
+let counselingPage = 1;
+
+const TMI_CATEGORIES = [
+  '饮食偏好','性格习惯','兴趣爱好','人际关系','成长经历',
+  '语言能力','身体小细节','恐惧与反应','价值观念','日常碎片'
+];
+const CONFIDENCE_LEVELS = ['high','medium','low'];
+const EVENT_TYPES = ['音乐回归','巡演','综艺','品牌活动','生日','其他'];
+
+// ── Helpers ──
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+function escapeAttr(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Admin mode toggle ──
+function toggleAdminMode() {
+  if (!adminMode) {
+    const pw = prompt('请输入管理密码：');
+    if (pw !== '03280522') {
+      if (pw !== null) alert('密码错误');
+      return;
+    }
+  }
+  adminMode = !adminMode;
+  const btn = document.getElementById('adminToggle');
+  if (adminMode) {
+    btn.classList.add('active');
+    document.body.classList.add('admin-on');
+  } else {
+    btn.classList.remove('active');
+    document.body.classList.remove('admin-on');
+    hideNewTmiForm();
+    hideNewCounselingForm();
+    hideNewScheduleForm();
+    document.getElementById('idolEditor').classList.remove('show');
+  }
+  renderTmiList();
+  renderTimeline();
+}
+
+// ── Stats ──
+async function loadStats() {
+  const r = await fetch(`${API}/stats`);
+  const s = await r.json();
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">1</div><div class="label">Idol</div></div>
+    <div class="stat"><div class="num">${s.posts}</div><div class="label">帖子</div></div>
+    <div class="stat"><div class="num">${s.tmis}</div><div class="label">TMI</div></div>
+    <div class="stat"><div class="num">${s.counselings || 0}</div><div class="label">烦恼商谈</div></div>
+    <div class="stat"><div class="num">${s.schedules}</div><div class="label">行程</div></div>
+  `;
+}
+
+// ── Categories ──
+async function loadCategories() {
+  const r = await fetch(`${API}/tmis/categories`);
+  allCategories = await r.json();
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '<span class="tab active" onclick="filterTMI()">全部</span>';
+  allCategories.forEach(c => {
+    const el = document.createElement('span');
+    el.className = 'tab';
+    el.innerHTML = `${c.category}<span class="count">${c.cnt}</span>`;
+    el.onclick = () => filterTMI(c.category);
+    tabs.appendChild(el);
+  });
+}
+
+// ── TMI display ──
+function renderTmiCard(t, editing) {
+  const id = t.id;
+
+  if (editing) {
+    const catOpts = TMI_CATEGORIES.map(c =>
+      `<option value="${c}" ${t.category === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+
+    return `
+    <div class="tmi-card editing" data-tmi-id="${id}">
+      <div class="edit-form">
+        <textarea class="edit-content" rows="3">${escapeHtml(t.content)}</textarea>
+        <div class="edit-row">
+          <select class="edit-category">${catOpts}</select>
+        </div>
+        <textarea class="edit-quote" rows="2" placeholder="原文引用（可选）">${escapeHtml(t.quote || '')}</textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="saveTmi(${id})">保存</button>
+          <button class="btn-cancel" onclick="cancelEditTmi(${id})">取消</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="tmi-card" data-tmi-id="${id}">
+      <div class="header">
+        <span class="cat">${escapeHtml(t.category)}</span>
+        <span class="actions">
+          <button class="btn-icon edit" onclick="editTmi(${id})">编辑</button>
+          <button class="btn-icon del" onclick="deleteTmi(${id})">删除</button>
+        </span>
+      </div>
+      <div class="content">${escapeHtml(t.content)}</div>
+      ${t.quote ? `<div class="quote">${escapeHtml(t.quote)}</div>` : ''}
+      ${t.post_url ? `<a href="${escapeAttr(t.post_url)}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none">查看原帖 →</a>` : ''}
+    </div>`;
+}
+
+function renderTmiList() {
+  const list = document.getElementById('tmiList');
+  const tmis = tmiData;
+
+  if (!tmis.length) {
+    list.innerHTML = '<div class="empty">暂无 TMI 数据</div>';
+    return;
+  }
+
+  const totalPages = Math.ceil(tmis.length / PAGE_SIZE);
+  if (tmiPage > totalPages) tmiPage = totalPages;
+  const start = (tmiPage - 1) * PAGE_SIZE;
+  const pageItems = tmis.slice(start, start + PAGE_SIZE);
+
+  let html = '';
+  html += `<button class="btn-new" onclick="showNewTmiForm()">+ 新建 TMI</button>`;
+  html += `<div id="newTmiForm" style="display:none"></div>`;
+  html += pageItems.map(t => renderTmiCard(t, false)).join('');
+
+  if (totalPages > 1) {
+    html += `<div class="pagination">
+      <button ${tmiPage <= 1 ? 'disabled' : ''} onclick="changeTmiPage(${tmiPage - 1})">上一页</button>
+      <span>第 <span class="page-num">${tmiPage}</span>/${totalPages} 页，共 ${tmis.length} 条</span>
+      <button ${tmiPage >= totalPages ? 'disabled' : ''} onclick="changeTmiPage(${tmiPage + 1})">下一页</button>
+    </div>`;
+  }
+
+  list.innerHTML = html;
+}
+
+function changeTmiPage(n) {
+  tmiPage = n;
+  renderTmiList();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function loadTMIs(category = null) {
+  const list = document.getElementById('tmiList');
+  list.innerHTML = '<div class="loading">加载中…</div>';
+  let url = `${API}/tmis`;
+  if (category) url += `?category=${encodeURIComponent(category)}`;
+  const r = await fetch(url);
+  tmiData = await r.json();
+  currentFilter = category;
+  tmiPage = 1;
+  renderTmiList();
+}
+
+// ── Search ──
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) { loadTMIs(); loadCounselings(); return; }
+  const tmiList = document.getElementById('tmiList');
+  const cList = document.getElementById('counselingList');
+  tmiList.innerHTML = '<div class="loading">搜索 TMI 中…</div>';
+  cList.innerHTML = '<div class="loading">搜索烦恼商谈中…</div>';
+
+  const [tmiR, cR] = await Promise.all([
+    fetch(`${API}/tmis/search?q=${encodeURIComponent(q)}`),
+    fetch(`${API}/counselings/search?q=${encodeURIComponent(q)}`)
+  ]);
+  tmiData = await tmiR.json();
+  counselingData = await cR.json();
+  currentFilter = null;
+  tmiPage = 1;
+  counselingPage = 1;
+  renderTmiList();
+  renderCounselingList();
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab')?.classList.add('active');
+}
+
+function filterTMI(cat) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (cat) {
+    event.target.classList.add('active');
+  } else {
+    document.querySelector('.tab').classList.add('active');
+  }
+  document.getElementById('searchInput').value = '';
+  loadTMIs(cat || null);
+}
+
+// ── TMI CRUD ──
+function editTmi(id) {
+  const t = tmiData.find(x => x.id === id);
+  if (!t) return;
+  const card = document.querySelector(`.tmi-card[data-tmi-id="${id}"]`);
+  if (card) card.outerHTML = renderTmiCard(t, true);
+}
+
+function cancelEditTmi(id) {
+  const t = tmiData.find(x => x.id === id);
+  if (!t) return;
+  const card = document.querySelector(`.tmi-card.editing[data-tmi-id="${id}"]`);
+  if (card) card.outerHTML = renderTmiCard(t, false);
+}
+
+async function saveTmi(id) {
+  const card = document.querySelector(`.tmi-card.editing[data-tmi-id="${id}"]`);
+  if (!card) return;
+  const content  = card.querySelector('.edit-content').value.trim();
+  const category = card.querySelector('.edit-category').value;
+  const quote    = card.querySelector('.edit-quote').value.trim();
+
+  if (!content) { alert('内容不能为空'); return; }
+
+  await fetch(`${API}/tmis/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, category, quote })
+  });
+  await loadTMIs(currentFilter);
+}
+
+async function deleteTmi(id) {
+  const t = tmiData.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`确定要删除这条 TMI 吗？\n\n"${t.content.substring(0, 80)}${t.content.length > 80 ? '...' : ''}"`)) return;
+  await fetch(`${API}/tmis/${id}`, { method: 'DELETE' });
+  await loadTMIs(currentFilter);
+  await loadStats();
+  await loadCategories();
+}
+
+function showNewTmiForm() {
+  const container = document.getElementById('newTmiForm');
+  const catOpts = TMI_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="tmi-card editing">
+      <div class="header"><span class="cat">新建 TMI</span></div>
+      <div class="edit-form">
+        <textarea class="new-content" rows="3" placeholder="TMI 内容（必填）"></textarea>
+        <div class="edit-row">
+          <select class="new-category">${catOpts}</select>
+        </div>
+        <textarea class="new-quote" rows="2" placeholder="原文引用（可选）"></textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="createTmi()">保存</button>
+          <button class="btn-cancel" onclick="hideNewTmiForm()">取消</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function hideNewTmiForm() {
+  const container = document.getElementById('newTmiForm');
+  container.style.display = 'none';
+  container.innerHTML = '';
+}
+
+async function createTmi() {
+  const content  = document.querySelector('.new-content').value.trim();
+  const category = document.querySelector('.new-category').value;
+  const quote    = document.querySelector('.new-quote').value.trim();
+
+  if (!content) { alert('内容不能为空'); return; }
+
+  await fetch(`${API}/tmis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idol_id: 1, content, category, quote })
+  });
+
+  hideNewTmiForm();
+  await loadTMIs(currentFilter);
+  await loadStats();
+  await loadCategories();
+}
+
+// ── Counseling display ──
+function renderCounselingCard(c, editing) {
+  const id = c.id;
+
+  if (editing) {
+    return `
+    <div class="tmi-card editing" data-counseling-id="${id}">
+      <div class="edit-form">
+        <textarea class="edit-counseling-content" rows="3">${escapeHtml(c.content)}</textarea>
+        <textarea class="edit-counseling-quote" rows="2" placeholder="原文引用（可选）">${escapeHtml(c.quote || '')}</textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="saveCounseling(${id})">保存</button>
+          <button class="btn-cancel" onclick="cancelEditCounseling(${id})">取消</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="tmi-card" data-counseling-id="${id}">
+      <div class="header">
+        <span class="cat" style="background:#fef3c7;color:#b45309">烦恼商谈</span>
+        <span class="actions">
+          <button class="btn-icon edit" onclick="editCounseling(${id})">编辑</button>
+          <button class="btn-icon del" onclick="deleteCounseling(${id})">删除</button>
+        </span>
+      </div>
+      <div class="content">${escapeHtml(c.content)}</div>
+      ${c.quote ? `<div class="quote">${escapeHtml(c.quote)}</div>` : ''}
+      ${c.post_url ? `<a href="${escapeAttr(c.post_url)}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none">查看原帖 →</a>` : ''}
+    </div>`;
+}
+
+function renderCounselingList() {
+  const list = document.getElementById('counselingList');
+  const items = counselingData;
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">暂无烦恼商谈数据</div>';
+    return;
+  }
+
+  const totalPages = Math.ceil(items.length / PAGE_SIZE);
+  if (counselingPage > totalPages) counselingPage = totalPages;
+  const start = (counselingPage - 1) * PAGE_SIZE;
+  const pageItems = items.slice(start, start + PAGE_SIZE);
+
+  let html = '';
+  html += `<button class="btn-new" onclick="showNewCounselingForm()">+ 新建商谈</button>`;
+  html += `<div id="newCounselingForm" style="display:none"></div>`;
+  html += pageItems.map(c => renderCounselingCard(c, false)).join('');
+
+  if (totalPages > 1) {
+    html += `<div class="pagination">
+      <button ${counselingPage <= 1 ? 'disabled' : ''} onclick="changeCounselingPage(${counselingPage - 1})">上一页</button>
+      <span>第 <span class="page-num">${counselingPage}</span>/${totalPages} 页，共 ${items.length} 条</span>
+      <button ${counselingPage >= totalPages ? 'disabled' : ''} onclick="changeCounselingPage(${counselingPage + 1})">下一页</button>
+    </div>`;
+  }
+
+  list.innerHTML = html;
+}
+
+function changeCounselingPage(n) {
+  counselingPage = n;
+  renderCounselingList();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function loadCounselings() {
+  const list = document.getElementById('counselingList');
+  list.innerHTML = '<div class="loading">加载中…</div>';
+  const r = await fetch(`${API}/counselings`);
+  counselingData = await r.json();
+  counselingPage = 1;
+  renderCounselingList();
+}
+
+// ── Counseling CRUD ──
+function editCounseling(id) {
+  const c = counselingData.find(x => x.id === id);
+  if (!c) return;
+  const card = document.querySelector(`.tmi-card[data-counseling-id="${id}"]`);
+  if (card) card.outerHTML = renderCounselingCard(c, true);
+}
+
+function cancelEditCounseling(id) {
+  const c = counselingData.find(x => x.id === id);
+  if (!c) return;
+  const card = document.querySelector(`.tmi-card.editing[data-counseling-id="${id}"]`);
+  if (card) card.outerHTML = renderCounselingCard(c, false);
+}
+
+async function saveCounseling(id) {
+  const card = document.querySelector(`.tmi-card.editing[data-counseling-id="${id}"]`);
+  if (!card) return;
+  const content = card.querySelector('.edit-counseling-content').value.trim();
+  const quote   = card.querySelector('.edit-counseling-quote').value.trim();
+
+  if (!content) { alert('内容不能为空'); return; }
+
+  await fetch(`${API}/counselings/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, quote })
+  });
+  await loadCounselings();
+  await loadStats();
+}
+
+async function deleteCounseling(id) {
+  const c = counselingData.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`确定要删除这条烦恼商谈吗？\n\n"${c.content.substring(0, 80)}${c.content.length > 80 ? '...' : ''}"`)) return;
+  await fetch(`${API}/counselings/${id}`, { method: 'DELETE' });
+  await loadCounselings();
+  await loadStats();
+}
+
+function showNewCounselingForm() {
+  const container = document.getElementById('newCounselingForm');
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="tmi-card editing">
+      <div class="header"><span class="cat" style="background:#fef3c7;color:#b45309">新建商谈</span></div>
+      <div class="edit-form">
+        <textarea class="new-counseling-content" rows="3" placeholder="烦恼商谈内容（必填）"></textarea>
+        <textarea class="new-counseling-quote" rows="2" placeholder="原文引用（可选）"></textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="createCounseling()">保存</button>
+          <button class="btn-cancel" onclick="hideNewCounselingForm()">取消</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function hideNewCounselingForm() {
+  const container = document.getElementById('newCounselingForm');
+  container.style.display = 'none';
+  container.innerHTML = '';
+}
+
+async function createCounseling() {
+  const content = document.querySelector('.new-counseling-content').value.trim();
+  const quote   = document.querySelector('.new-counseling-quote').value.trim();
+
+  if (!content) { alert('内容不能为空'); return; }
+
+  await fetch(`${API}/counselings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idol_id: 1, content, quote })
+  });
+
+  hideNewCounselingForm();
+  await loadCounselings();
+  await loadStats();
+}
+
+// ── Schedules display ──
+function renderScheduleItem(s, editing) {
+  const id = s.id;
+
+  if (editing) {
+    const typeOpts = EVENT_TYPES.map(t =>
+      `<option value="${t}" ${s.event_type === t ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    return `
+    <div class="timeline-item" data-schedule-id="${id}">
+      <div class="edit-form">
+        <input class="edit-sched-title" value="${escapeHtml(s.title)}" placeholder="标题（必填）">
+        <div class="edit-row">
+          <select class="edit-sched-type">${typeOpts}</select>
+        </div>
+        <div class="edit-row">
+          <input type="date" class="edit-sched-start" value="${escapeAttr(s.start_date || '')}">
+          <input type="date" class="edit-sched-end" value="${escapeAttr(s.end_date || '')}">
+        </div>
+        <input class="edit-sched-location" value="${escapeHtml(s.location || '')}" placeholder="地点（可选）">
+        <textarea class="edit-sched-desc" rows="2" placeholder="描述（可选）">${escapeHtml(s.description || '')}</textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="saveSchedule(${id})">保存</button>
+          <button class="btn-cancel" onclick="cancelEditSchedule(${id})">取消</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="timeline-item" data-schedule-id="${id}">
+      <div class="date">${escapeHtml(s.start_date || '')}${s.end_date ? ' ~ ' + escapeHtml(s.end_date) : ''}</div>
+      <div class="title">[${escapeHtml(s.event_type)}] ${escapeHtml(s.title)}</div>
+      ${s.location ? `<div class="detail">${escapeHtml(s.location)}</div>` : ''}
+      ${s.description ? `<div class="detail" style="margin-top:2px">${escapeHtml(s.description)}</div>` : ''}
+      <div class="sched-actions">
+        <button class="btn-icon edit" onclick="editSchedule(${id})">编辑</button>
+        <button class="btn-icon del" onclick="deleteSchedule(${id})">删除</button>
+      </div>
+    </div>`;
+}
+
+function renderTimeline() {
+  const tl = document.getElementById('timeline');
+  const scheds = scheduleData;
+
+  let html = '';
+  html += `<button class="btn-new" onclick="showNewScheduleForm()">+ 新建行程</button>`;
+  html += `<div id="newScheduleForm" style="display:none"></div>`;
+
+  if (!scheds.length) {
+    html += '<div class="empty">暂无行程</div>';
+    tl.innerHTML = html;
+    return;
+  }
+
+  html += scheds.map(s => renderScheduleItem(s, false)).join('');
+  tl.innerHTML = html;
+}
+
+async function loadSchedules() {
+  const r = await fetch(`${API}/schedules`);
+  scheduleData = await r.json();
+  renderTimeline();
+}
+
+// ── Schedule CRUD ──
+function editSchedule(id) {
+  const s = scheduleData.find(x => x.id === id);
+  if (!s) return;
+  const item = document.querySelector(`.timeline-item[data-schedule-id="${id}"]`);
+  if (item) item.outerHTML = renderScheduleItem(s, true);
+}
+
+function cancelEditSchedule(id) {
+  const s = scheduleData.find(x => x.id === id);
+  if (!s) return;
+  const item = document.querySelector(`.timeline-item[data-schedule-id="${id}"]`);
+  if (item) item.outerHTML = renderScheduleItem(s, false);
+}
+
+async function saveSchedule(id) {
+  const item = document.querySelector(`.timeline-item[data-schedule-id="${id}"]`);
+  if (!item) return;
+  const title       = item.querySelector('.edit-sched-title').value.trim();
+  const event_type  = item.querySelector('.edit-sched-type').value;
+  const start_date  = item.querySelector('.edit-sched-start').value;
+  const end_date    = item.querySelector('.edit-sched-end').value;
+  const location    = item.querySelector('.edit-sched-location').value.trim();
+  const description = item.querySelector('.edit-sched-desc').value.trim();
+
+  if (!title) { alert('标题不能为空'); return; }
+
+  await fetch(`${API}/schedules/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, event_type, start_date, end_date, location, description })
+  });
+  await loadSchedules();
+  await loadStats();
+}
+
+async function deleteSchedule(id) {
+  const s = scheduleData.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`确定要删除行程 "${s.title}" 吗？`)) return;
+  await fetch(`${API}/schedules/${id}`, { method: 'DELETE' });
+  await loadSchedules();
+  await loadStats();
+}
+
+function showNewScheduleForm() {
+  const container = document.getElementById('newScheduleForm');
+  const typeOpts = EVENT_TYPES.map(t =>
+    `<option value="${t}" ${t === '其他' ? 'selected' : ''}>${t}</option>`
+  ).join('');
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="timeline-item" style="margin-bottom:14px">
+      <div class="edit-form">
+        <input class="new-sched-title" placeholder="行程标题（必填）">
+        <div class="edit-row">
+          <select class="new-sched-type">${typeOpts}</select>
+        </div>
+        <div class="edit-row">
+          <input type="date" class="new-sched-start">
+          <input type="date" class="new-sched-end">
+        </div>
+        <input class="new-sched-location" placeholder="地点（可选）">
+        <textarea class="new-sched-desc" rows="2" placeholder="描述（可选）"></textarea>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="createSchedule()">保存</button>
+          <button class="btn-cancel" onclick="hideNewScheduleForm()">取消</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function hideNewScheduleForm() {
+  const container = document.getElementById('newScheduleForm');
+  container.style.display = 'none';
+  container.innerHTML = '';
+}
+
+async function createSchedule() {
+  const title       = document.querySelector('.new-sched-title').value.trim();
+  const event_type  = document.querySelector('.new-sched-type').value;
+  const start_date  = document.querySelector('.new-sched-start').value;
+  const end_date    = document.querySelector('.new-sched-end').value;
+  const location    = document.querySelector('.new-sched-location').value.trim();
+  const description = document.querySelector('.new-sched-desc').value.trim();
+
+  if (!title) { alert('标题不能为空'); return; }
+
+  await fetch(`${API}/schedules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idol_id: 1, title, event_type, start_date, end_date, location, description })
+  });
+
+  hideNewScheduleForm();
+  await loadSchedules();
+  await loadStats();
+}
+
+// ── Idol editor ──
+async function showIdolEditor() {
+  const r = await fetch('/api/idols/1');
+  const idol = await r.json();
+  const container = document.getElementById('idolEditor');
+  container.classList.add('show');
+  container.innerHTML = `
+    <div class="tmi-card" style="margin-bottom:0">
+      <div class="header"><span class="cat">编辑 Idol 信息</span></div>
+      <div class="edit-form" style="margin-top:10px">
+        <div class="edit-row">
+          <input class="edit-idol-name" value="${escapeHtml(idol.name || '')}" placeholder="名字">
+          <input class="edit-idol-group" value="${escapeHtml(idol.group_name || '')}" placeholder="所属团体">
+        </div>
+        <div class="edit-row">
+          <input type="date" class="edit-idol-birthday" value="${idol.birthday || ''}">
+          <input class="edit-idol-notes" value="${escapeHtml(idol.notes || '')}" placeholder="备注">
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="saveIdol()">保存</button>
+          <button class="btn-cancel" onclick="hideIdolEditor()">取消</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function hideIdolEditor() {
+  const container = document.getElementById('idolEditor');
+  container.classList.remove('show');
+}
+
+async function saveIdol() {
+  const name = document.querySelector('.edit-idol-name').value.trim();
+  const group_name = document.querySelector('.edit-idol-group').value.trim();
+  const birthday = document.querySelector('.edit-idol-birthday').value;
+  const notes = document.querySelector('.edit-idol-notes').value.trim();
+
+  await fetch('/api/idols/1', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: name || undefined,
+      group_name: group_name || undefined,
+      birthday: birthday || undefined,
+      notes: notes || undefined
+    })
+  });
+
+  hideIdolEditor();
+
+  if (name || group_name) {
+    const r = await fetch('/api/idols/1');
+    const idol = await r.json();
+    document.querySelector('.subtitle').innerHTML =
+      `${idol.name || '韩志薰'} Jihoon · ${idol.group_name || 'TWS'}` +
+      `<span class="admin-only" style="font-size:12px;cursor:pointer;color:var(--accent);margin-left:8px"
+            onclick="showIdolEditor()">编辑信息</span>`;
+  }
+
+  await loadStats();
+}
+
+// ── Init ──
+loadStats();
+loadCategories();
+loadTMIs();
+loadCounselings();
+loadSchedules();
+
+// Enter to search
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+</script>
+</body>
+</html>
