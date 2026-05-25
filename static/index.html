@@ -498,7 +498,7 @@ function renderTmiCard(t,editing,idx,total){
   return'<div class="card '+cardColor(idx)+spanClass(idx,total)+'" data-tmi-id="'+t.id+'">'+
     renderBadges(t)+'<div class="content">'+escHtml(t.content)+'</div>'+
     (t.quote?'<div class="card-overlay"><div>'+escHtml(t.quote)+'</div></div>':'')+
-    adm+'</div>';
+    (t.post_url?'<a href="'+escAttr(t.post_url)+'" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--gray);text-decoration:none;display:block;margin-top:8px">查看原帖 &rarr;</a>':'')+adm+'</div>';
 }
 
 function renderTmiList(){
@@ -532,7 +532,7 @@ async function newTmi(){try{var cats=JSON.stringify(['性格习惯']);var resp=a
 function renderCounselingCard(c,editing,idx,total){
   if(editing){return'<div class="card editing" data-counseling-id="'+c.id+'"><textarea id="cect_'+c.id+'">'+escHtml(c.content)+'</textarea><input id="ceqt_'+c.id+'" value="'+escAttr(c.quote||'')+'" placeholder="引用原句（可选）"/><div class="edit-btns"><button class="btn-save" onclick="saveCounseling(\''+c.id+'\')">保存</button><button class="btn-cancel" onclick="cancelEditCounseling(\''+c.id+'\')">取消</button></div></div>';}
   var adm=isAdmin?'<div class="admin-actions"><button onclick="editCounseling(\''+c.id+'\')">E</button><button class="danger" onclick="deleteCounseling(\''+c.id+'\')">D</button></div>':'';
-  return'<div class="card card-green'+spanClass(idx,total)+'" data-counseling-id="'+c.id+'"><span class="badge counseling">商谈</span><div class="content" style="margin-top:6px">'+escHtml(c.content)+'</div>'+(c.quote?'<div class="card-overlay"><div>'+escHtml(c.quote)+'</div></div>':'')+adm+'</div>';
+  return'<div class="card card-green'+spanClass(idx,total)+'" data-counseling-id="'+c.id+'"><span class="badge counseling">商谈</span><div class="content" style="margin-top:6px">'+escHtml(c.content)+'</div>'+(c.quote?'<div class="card-overlay"><div>'+escHtml(c.quote)+'</div></div>':'')+(t.post_url?'<a href="'+escAttr(t.post_url)+'" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--gray);text-decoration:none;display:block;margin-top:8px">查看原帖 &rarr;</a>':'')+adm+'</div>';
 }
 function renderCounselingList(){
   var list=document.getElementById('counselingList');if(loading){list.innerHTML='<span class="loading-text">LOADING...</span>';return;}
