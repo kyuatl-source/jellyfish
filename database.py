@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS tmis (
     idol_id INTEGER REFERENCES idols(id),
     content TEXT NOT NULL,
     category TEXT,
+    categories TEXT,
     confidence TEXT CHECK(confidence IN ('high', 'medium', 'low')),
     quote TEXT,
     post_id INTEGER REFERENCES posts(id),
@@ -100,6 +101,11 @@ def get_connection() -> sqlite3.Connection:
 def init_db():
     conn = get_connection()
     conn.executescript(SCHEMA)
+    # Migration: add categories column if upgrading from older schema
+    try:
+        conn.execute("ALTER TABLE tmis ADD COLUMN categories TEXT")
+    except:
+        pass
     conn.commit()
     conn.close()
     print(f"数据库已初始化：{DB_PATH}")
@@ -138,13 +144,14 @@ def insert_posts(conn: sqlite3.Connection, posts: list[dict], idol_id: int):
 
 def insert_tmis(conn: sqlite3.Connection, tmis: list[dict], idol_id: int):
     cur = conn.executemany("""
-        INSERT INTO tmis (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes)
-        VALUES (?,?,?,?,?,?,?,?,?)
+        INSERT INTO tmis (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes, categories)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
     """, [
         (
             idol_id, t["content"], t["category"], t.get("confidence", "low"),
             t.get("quote", ""), t.get("post_id"), t.get("post_url", ""),
-            t.get("post_date", ""), t.get("post_likes", 0)
+            t.get("post_date", ""), t.get("post_likes", 0),
+            t.get("categories")
         )
         for t in tmis
     ])
@@ -221,13 +228,14 @@ def get_db_stats() -> dict:
 
 def add_tmi(idol_id: int, content: str, category: str, confidence: str = "medium",
             quote: str = "", post_id: int = None, post_url: str = "",
-            post_date: str = "", post_likes: int = 0) -> int:
+            post_date: str = "", post_likes: int = 0,
+            categories: str = None) -> int:
     """手动添加一条 TMI"""
     conn = get_connection()
     cur = conn.execute(
-        """INSERT INTO tmis (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
-        (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes))
+        """INSERT INTO tmis (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes, categories)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (idol_id, content, category, confidence, quote, post_id, post_url, post_date, post_likes, categories))
     conn.commit()
     new_id = cur.lastrowid
     conn.close()
@@ -236,7 +244,7 @@ def add_tmi(idol_id: int, content: str, category: str, confidence: str = "medium
 
 def update_tmi(tmi_id: int, **kwargs):
     """更新 TMI 的任意字段，如 update_tmi(3, content='新内容', confidence='high')"""
-    allowed = {"content", "category", "confidence", "quote"}
+    allowed = {"content", "category", "confidence", "quote", "categories"}
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
         return

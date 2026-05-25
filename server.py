@@ -6,6 +6,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from database import (
     init_db, get_db_stats, get_connection,
@@ -25,12 +26,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="追星助手 API", version="0.1", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ── 模型定义 ──
 class TmiCreate(BaseModel):
     idol_id: int
     content: str
     category: str
+    categories: str | None = None
     confidence: str = "medium"
     quote: str = ""
     post_id: int | None = None
@@ -42,6 +52,7 @@ class TmiCreate(BaseModel):
 class TmiUpdate(BaseModel):
     content: str | None = None
     category: str | None = None
+    categories: str | None = None
     confidence: str | None = None
     quote: str | None = None
 
@@ -147,6 +158,7 @@ def create_tmi(body: TmiCreate):
         confidence=body.confidence, quote=body.quote,
         post_id=body.post_id, post_url=body.post_url,
         post_date=body.post_date, post_likes=body.post_likes,
+        categories=body.categories,
     )
     return {"ok": True, "id": tid}
 
