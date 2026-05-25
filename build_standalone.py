@@ -1,10 +1,6 @@
-"""生成带管理功能的独立 HTML"""
-import json
+"""生成内嵌数据的独立 HTML"""
+import json, sqlite3, os
 
-with open('/Users/doublle/Desktop/追星助手/star_tracker.db', 'rb') as f:
-    pass  # we use sqlite3
-
-import sqlite3
 conn = sqlite3.connect('/Users/doublle/Desktop/追星助手/star_tracker.db')
 conn.row_factory = sqlite3.Row
 
@@ -13,12 +9,12 @@ counselings = [dict(r) for r in conn.execute("SELECT * FROM counselings ORDER BY
 schedules = [dict(r) for r in conn.execute("SELECT * FROM schedules ORDER BY start_date DESC").fetchall()]
 categories = [dict(r) for r in conn.execute("SELECT category, COUNT(*) as cnt FROM tmis GROUP BY category ORDER BY cnt DESC").fetchall()]
 
-# Clean: remove sqlite-specific fields
+keep_keys = {'id','content','category','categories','quote','post_url','post_date','post_likes',
+             'title','event_type','start_date','end_date','location','description'}
 for arr in [tmis, counselings, schedules]:
     for item in arr:
         for k in list(item.keys()):
-            if k not in ('id','content','category','quote','post_url','post_date','post_likes',
-                         'title','event_type','start_date','end_date','location','description'):
+            if k not in keep_keys:
                 del item[k]
 
 conn.close()
@@ -34,14 +30,19 @@ print(f"Data: {len(tmis)} TMI, {len(counselings)} counseling, {len(schedules)} s
 with open('/tmp/standalone_template.html') as f:
     template = f.read()
 
-html = template.replace('{{TMIS_JSON}}', tmis_json)
+# Read splash image base64
+with open('/tmp/splash_b64.txt') as f:
+    splash_b64 = f.read().strip()
+
+html = template.replace('SPLASH_B64', splash_b64)
+html = html.replace('{{TMIS_JSON}}', tmis_json)
 html = html.replace('{{COUNSELINGS_JSON}}', counselings_json)
 html = html.replace('{{SCHEDULES_JSON}}', schedules_json)
 html = html.replace('{{CATEGORIES_JSON}}', categories_json)
 
-with open('/Users/doublle/Desktop/追星助手/standalone.html', 'w', encoding='utf-8') as f:
+output_path = '/Users/doublle/Desktop/追星助手/standalone.html'
+with open(output_path, 'w', encoding='utf-8') as f:
     f.write(html)
 
-import os
-size = os.path.getsize('/Users/doublle/Desktop/追星助手/standalone.html')
+size = os.path.getsize(output_path)
 print(f"Done: {size/1024:.0f}KB")
