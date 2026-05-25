@@ -6,12 +6,11 @@ conn.row_factory = sqlite3.Row
 
 tmis = [dict(r) for r in conn.execute("SELECT * FROM tmis ORDER BY post_date DESC").fetchall()]
 counselings = [dict(r) for r in conn.execute("SELECT * FROM counselings ORDER BY post_date DESC").fetchall()]
-schedules = [dict(r) for r in conn.execute("SELECT * FROM schedules ORDER BY start_date DESC").fetchall()]
 categories = [dict(r) for r in conn.execute("SELECT category, COUNT(*) as cnt FROM tmis GROUP BY category ORDER BY cnt DESC").fetchall()]
 
 keep_keys = {'id','content','category','categories','quote','post_url','post_date','post_likes',
              'title','event_type','start_date','end_date','location','description'}
-for arr in [tmis, counselings, schedules]:
+for arr in [tmis, counselings]:
     for item in arr:
         for k in list(item.keys()):
             if k not in keep_keys:
@@ -21,10 +20,9 @@ conn.close()
 
 tmis_json = json.dumps(tmis, ensure_ascii=False)
 counselings_json = json.dumps(counselings, ensure_ascii=False)
-schedules_json = json.dumps(schedules, ensure_ascii=False)
 categories_json = json.dumps(categories, ensure_ascii=False)
 
-print(f"Data: {len(tmis)} TMI, {len(counselings)} counseling, {len(schedules)} schedules")
+print(f"Data: {len(tmis)} TMI, {len(counselings)} counseling")
 
 # Read template
 with open('/tmp/standalone_template.html') as f:
@@ -37,7 +35,6 @@ with open('/tmp/splash_b64.txt') as f:
 html = template.replace('SPLASH_B64', splash_b64)
 html = html.replace('{{TMIS_JSON}}', tmis_json)
 html = html.replace('{{COUNSELINGS_JSON}}', counselings_json)
-html = html.replace('{{SCHEDULES_JSON}}', schedules_json)
 html = html.replace('{{CATEGORIES_JSON}}', categories_json)
 
 output_path = '/Users/doublle/Desktop/追星助手/standalone.html'

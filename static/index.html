@@ -227,16 +227,11 @@
   }
   .card:hover { border-color: var(--ink); z-index: 2; }
 
-  .card .card-overlay {
-    position: absolute; inset: 0;
-    background: var(--dark-overlay);
-    color: var(--white);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px; font-size: 14px; line-height: 1.7;
-    opacity: 0; transition: opacity .25s;
-    pointer-events: none; text-align: center;
+  .card .quote-text {
+    font-size: 12px; color: var(--gray); line-height: 1.6;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--light-gray);
   }
-  .card:hover .card-overlay { opacity: 1; }
 
   .card.span-2 { grid-column: span 2; }
   @media (max-width: 480px) { .card.span-2 { grid-column: span 1; } }
@@ -332,18 +327,6 @@
   }
   .add-btn button:hover { border-color: var(--ink); color: var(--ink); border-style: solid; }
 
-  /* Timeline */
-  .timeline-card {
-    background: var(--white); border: 1px solid var(--light-gray);
-    padding: 18px; margin-bottom: 2px;
-  }
-  .timeline-card .tl-date {
-    font-family: var(--mono); font-size: 11px; color: var(--gray);
-    letter-spacing: .04em; margin-bottom: 4px;
-  }
-  .timeline-card .tl-title { font-size: 15px; font-weight: 600; }
-  .timeline-card .tl-detail { font-size: 12px; color: var(--gray); margin-top: 2px; }
-
   /* Export */
   .export-bar { text-align: center; margin: 40px 0; }
   .export-bar button {
@@ -384,7 +367,6 @@
   <div class="nav-left">
     <span class="nav-item active" onclick="scrollToSection('tmi')">TMI</span>
     <span class="nav-item" onclick="scrollToSection('counseling')">商谈</span>
-    <span class="nav-item" onclick="scrollToSection('schedules')">行程</span>
   </div>
   <div class="nav-brand">jellyhooish</div>
   <span class="nav-admin" id="navAdmin" onclick="toggleAdminMode()" title="管理">&#9881;</span>
@@ -420,10 +402,6 @@
   <div class="add-btn" id="addCounselingBtn" style="display:none"><button onclick="newCounseling()">+ 新增烦恼商谈</button></div>
 </div>
 
-<div id="schedulesSection">
-  <span class="section-title">行程</span>
-  <div id="timeline"><span class="loading-text">LOADING...</span></div>
-</div>
 
 <div class="export-bar"><button onclick="exportData()">导出数据 / EXPORT JSON</button></div>
 <div class="status-bar" id="statusBar">数据由服务器统一管理 · 所有修改实时共享</div>
@@ -435,7 +413,7 @@ const TMI_CATEGORIES = ['性格习惯','人际关系','价值观念','兴趣爱�
 const PAGE_SIZE = 15;
 const ADMIN_PASSWORD = '03280522';
 
-var ALL_TMIS = [], ALL_COUNSELINGS = [], ALL_SCHEDULES = [];
+var ALL_TMIS = [], ALL_COUNSELINGS = [];
 var tmiFilter = null, tmiSearch = null, counselingSearch = null;
 var tmiPage = 1, counselingPage = 1;
 var isAdmin = false, loading = true;
@@ -487,7 +465,7 @@ function getCategories(tmi){
 }
 function status(msg){ var el=document.getElementById('statusBar'); if(el)el.textContent=msg; }
 function scrollToSection(id){
-  var m={tmi:'tmiList',counseling:'counselingSection',schedules:'schedulesSection'};
+  var m={tmi:'tmiList',counseling:'counselingSection'};
   var el=document.getElementById(m[id]); if(el)el.scrollIntoView({behavior:'smooth'});
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
   var t=document.querySelector('.nav-item[onclick*="'+id+'"]'); if(t)t.classList.add('active');
@@ -503,10 +481,10 @@ async function apiDelete(p){var r=await fetch(p,{method:'DELETE'});if(!r.ok)thro
 async function loadAllData(){
   loading=true; renderAll();
   try{
-    var _a=await Promise.all([apiGet('/api/tmis?idol_id=1'),apiGet('/api/counselings?idol_id=1'),apiGet('/api/schedules?idol_id=1')]);
-    ALL_TMIS=_a[0]; ALL_COUNSELINGS=_a[1]; ALL_SCHEDULES=_a[2]; loading=false;
-    status(ALL_TMIS.length+' TMI  ·  '+ALL_COUNSELINGS.length+' 烦恼商谈  ·  '+ALL_SCHEDULES.length+' 行程');
-  }catch(e){loading=false;status('加载失败：'+e.message);ALL_TMIS=[];ALL_COUNSELINGS=[];ALL_SCHEDULES=[];}
+    var _a=await Promise.all([apiGet('/api/tmis?idol_id=1'),apiGet('/api/counselings?idol_id=1')]);
+    ALL_TMIS=_a[0]; ALL_COUNSELINGS=_a[1]; loading=false;
+    status(ALL_TMIS.length+' TMI  ·  '+ALL_COUNSELINGS.length+' 烦恼商谈');
+  }catch(e){loading=false;status('加载失败：'+e.message);ALL_TMIS=[];ALL_COUNSELINGS=[];}
   renderAll();
 }
 
@@ -519,8 +497,7 @@ function renderStats(){
   if(loading){document.getElementById('stats').innerHTML='<span class="loading-text">LOADING...</span>';return;}
   document.getElementById('stats').innerHTML=
     '<div><div class="stat-num">'+ALL_TMIS.length+'</div><div class="stat-label">TMI 条目</div></div>'+
-    '<div><div class="stat-num">'+ALL_COUNSELINGS.length+'</div><div class="stat-label">烦恼商谈</div></div>'+
-    '<div><div class="stat-num">'+ALL_SCHEDULES.length+'</div><div class="stat-label">行程事件</div></div>';
+    '<div><div class="stat-num">'+ALL_COUNSELINGS.length+'</div><div class="stat-label">烦恼商谈</div></div>';
 }
 
 // ── Categories ──
@@ -560,7 +537,7 @@ function renderTmiCard(t,editing,idx,total){
   var adm=isAdmin?'<div class="admin-actions"><button onclick="editTmi(\''+t.id+'\')">E</button><button class="danger" onclick="deleteTmi(\''+t.id+'\')">D</button></div>':'';
   return'<div class="card '+cardColor(idx)+spanClass(idx,total)+'" data-tmi-id="'+t.id+'">'+
     renderBadges(t)+'<div class="content">'+escHtml(t.content)+'</div>'+
-    (t.quote?'<div class="card-overlay"><div>'+escHtml(t.quote)+'</div></div>':'')+
+    (t.quote?'<div class="quote-text">'+escHtml(t.quote)+'</div>':'')+
     (t.post_url?'<a href="'+escAttr(t.post_url)+'" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--gray);text-decoration:none;display:block;margin-top:8px">查看原帖 &rarr;</a>':'')+adm+'</div>';
 }
 
@@ -595,7 +572,7 @@ async function newTmi(){try{var cats=JSON.stringify(['性格习惯']);var resp=a
 function renderCounselingCard(c,editing,idx,total){
   if(editing){return'<div class="card editing" data-counseling-id="'+c.id+'"><textarea id="cect_'+c.id+'">'+escHtml(c.content)+'</textarea><input id="ceqt_'+c.id+'" value="'+escAttr(c.quote||'')+'" placeholder="引用原句（可选）"/><div class="edit-btns"><button class="btn-save" onclick="saveCounseling(\''+c.id+'\')">保存</button><button class="btn-cancel" onclick="cancelEditCounseling(\''+c.id+'\')">取消</button></div></div>';}
   var adm=isAdmin?'<div class="admin-actions"><button onclick="editCounseling(\''+c.id+'\')">E</button><button class="danger" onclick="deleteCounseling(\''+c.id+'\')">D</button></div>':'';
-  return'<div class="card card-green'+spanClass(idx,total)+'" data-counseling-id="'+c.id+'"><span class="badge counseling">商谈</span><div class="content" style="margin-top:6px">'+escHtml(c.content)+'</div>'+(c.quote?'<div class="card-overlay"><div>'+escHtml(c.quote)+'</div></div>':'')+(t.post_url?'<a href="'+escAttr(t.post_url)+'" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--gray);text-decoration:none;display:block;margin-top:8px">查看原帖 &rarr;</a>':'')+adm+'</div>';
+  return'<div class="card card-green'+spanClass(idx,total)+'" data-counseling-id="'+c.id+'"><span class="badge counseling">商谈</span><div class="content" style="margin-top:6px">'+escHtml(c.content)+'</div>'+(c.quote?'<div class="quote-text">'+escHtml(c.quote)+'</div>':'')+(c.post_url?'<a href="'+escAttr(c.post_url)+'" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--gray);text-decoration:none;display:block;margin-top:8px">查看原帖 &rarr;</a>':'')+adm+'</div>';
 }
 function renderCounselingList(){
   var list=document.getElementById('counselingList');if(loading){list.innerHTML='<span class="loading-text">LOADING...</span>';return;}
@@ -620,9 +597,6 @@ async function newCounseling(){try{var resp=await apiPost('/api/counselings',{id
 function doSearch(){var q=document.getElementById('searchInput').value.trim();if(!q){tmiSearch=null;counselingSearch=null;tmiFilter=null;}else{tmiSearch=q;counselingSearch=q;tmiFilter=null;}document.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});if(!q){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;counselingPage=1;renderTmiList();renderCounselingList();}
 function filterTMI(cat,ev){tmiFilter=cat;tmiSearch=null;document.getElementById('searchInput').value='';var tabs=document.querySelectorAll('.filter-tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');if(cat&&ev)ev.target.classList.add('active');else if(!cat){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;renderTmiList();}
 
-// ── Schedules ──
-function renderTimeline(){var tl=document.getElementById('timeline');if(loading){tl.innerHTML='<span class="loading-text">LOADING...</span>';return;}if(!ALL_SCHEDULES.length){tl.innerHTML='<span class="empty-text">暂无行程</span>';return;}tl.innerHTML=ALL_SCHEDULES.map(function(s){return'<div class="timeline-card"><div class="tl-date">'+escHtml(s.start_date||'')+(s.end_date?' ~ '+escHtml(s.end_date):'')+'</div><div class="tl-title">['+escHtml(s.event_type||'')+'] '+escHtml(s.title||'')+'</div>'+(s.location?'<div class="tl-detail">'+escHtml(s.location)+'</div>':'')+(s.description?'<div class="tl-detail">'+escHtml(s.description)+'</div>':'')+'</div>';}).join('');}
-
 // ── Admin ──
 function toggleAdminMode(){
   if(isAdmin){isAdmin=false;document.getElementById('navAdmin').classList.remove('active');document.body.classList.remove('admin-show');}
@@ -631,10 +605,10 @@ function toggleAdminMode(){
 }
 
 // ── Export ──
-function exportData(){var blob=new Blob([JSON.stringify({tmis:ALL_TMIS,counselings:ALL_COUNSELINGS,schedules:ALL_SCHEDULES},null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jellyhooish_data.json';a.click();}
+function exportData(){var blob=new Blob([JSON.stringify({tmis:ALL_TMIS,counselings:ALL_COUNSELINGS},null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jellyhooish_data.json';a.click();}
 
 // ── Init ──
-function renderAll(){renderStats();renderCategories();renderTmiList();renderCounselingList();renderTimeline();}
+function renderAll(){renderStats();renderCategories();renderTmiList();renderCounselingList();}
 document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
 loadAllData();
 </script>
