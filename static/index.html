@@ -461,8 +461,8 @@ function renderCategories(){
   var tabs=document.getElementById('tabs');if(loading){tabs.innerHTML='<span class="loading-text">---</span>';return;}
   var counts={};for(var i=0;i<TMI_CATEGORIES.length;i++)counts[TMI_CATEGORIES[i]]=0;
   for(var i=0;i<ALL_TMIS.length;i++){var cats=getCategories(ALL_TMIS[i]);for(var j=0;j<cats.length;j++){if(counts[cats[j]]!==undefined)counts[cats[j]]++;}}
-  var h='<span class="filter-tab active" onclick="filterTMI(null)">全部</span>';
-  for(var i=0;i<TMI_CATEGORIES.length;i++){var c=TMI_CATEGORIES[i];if(counts[c]>0)h+='<span class="filter-tab" onclick="filterTMI(\''+escAttr(c)+'\')">'+escHtml(c)+'<span class="count">'+counts[c]+'</span></span>';}
+  var h='<span class="filter-tab active" onclick="filterTMI(null,event)">全部</span>';
+  for(var i=0;i<TMI_CATEGORIES.length;i++){var c=TMI_CATEGORIES[i];if(counts[c]>0)h+='<span class="filter-tab" onclick="filterTMI(\''+escAttr(c)+'\',event)">'+escHtml(c)+'<span class="count">'+counts[c]+'</span></span>';}
   tabs.innerHTML=h;
 }
 
@@ -551,7 +551,7 @@ async function newCounseling(){try{var resp=await apiPost('/api/counselings',{id
 
 // ── Search ──
 function doSearch(){var q=document.getElementById('searchInput').value.trim();if(!q){tmiSearch=null;counselingSearch=null;tmiFilter=null;}else{tmiSearch=q;counselingSearch=q;tmiFilter=null;}document.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});if(!q){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;counselingPage=1;renderTmiList();renderCounselingList();}
-function filterTMI(cat){tmiFilter=cat;tmiSearch=null;document.getElementById('searchInput').value='';var tabs=document.querySelectorAll('.filter-tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');if(cat)event.target.classList.add('active');else{var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;renderTmiList();}
+function filterTMI(cat,ev){tmiFilter=cat;tmiSearch=null;document.getElementById('searchInput').value='';var tabs=document.querySelectorAll('.filter-tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');if(cat&&ev)ev.target.classList.add('active');else if(!cat){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;renderTmiList();}
 
 // ── Schedules ──
 function renderTimeline(){var tl=document.getElementById('timeline');if(loading){tl.innerHTML='<span class="loading-text">LOADING...</span>';return;}if(!ALL_SCHEDULES.length){tl.innerHTML='<span class="empty-text">暂无行程</span>';return;}tl.innerHTML=ALL_SCHEDULES.map(function(s){return'<div class="timeline-card"><div class="tl-date">'+escHtml(s.start_date||'')+(s.end_date?' ~ '+escHtml(s.end_date):'')+'</div><div class="tl-title">['+escHtml(s.event_type||'')+'] '+escHtml(s.title||'')+'</div>'+(s.location?'<div class="tl-detail">'+escHtml(s.location)+'</div>':'')+(s.description?'<div class="tl-detail">'+escHtml(s.description)+'</div>':'')+'</div>';}).join('');}
