@@ -418,9 +418,34 @@ def get_tmi_tags() -> list[dict] | None:
     return None
 
 
-def save_tmi_tags(tags: list[dict]):
-    """保存自定义 TMI 标签列表"""
+def save_tmi_tags(tags: list[dict], old_tags: list[dict] | None = None):
+    """保存自定义 TMI 标签列表，检测重命名并更新所有 TMI 记录"""
     conn = get_connection()
+    if old_tags:
+        for i, t in enumerate(tags):
+            if i < len(old_tags) and old_tags[i]["name"] != t["name"]:
+                old_name = old_tags[i]["name"]
+                new_name = t["name"]
+                if old_name and new_name and old_name != new_name:
+                    # Update the string category field (covers most TMIs)
+                    conn.execute(
+                        "UPDATE tmis SET category = ? WHERE category = ?",
+                        (new_name, old_name)
+                    )
+                    # Update the JSON categories array field
+                    for tmi in conn.execute(
+                        "SELECT id, categories FROM tmis WHERE categories IS NOT NULL"
+                    ).fetchall():
+                        try:
+                            cats = json.loads(tmi["categories"])
+                            if old_name in cats:
+                                cats = [new_name if c == old_name else c for c in cats]
+                                conn.execute(
+                                    "UPDATE tmis SET categories = ?, category = ? WHERE id = ?",
+                                    (json.dumps(cats, ensure_ascii=False), cats[0] if cats else "", tmi["id"])
+                                )
+                        except:
+                            pass
     conn.execute(
         "INSERT OR REPLACE INTO meta (key, value) VALUES ('tmi_tags', ?)",
         (json.dumps(tags, ensure_ascii=False),)

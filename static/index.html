@@ -642,11 +642,22 @@ function addTag(){
 }
 function deleteTag(i){ TAGS.splice(i,1); renderTagManager(); }
 async function saveTags(){
+  var oldTags=TAGS.map(function(t){return {name:t.name,color:t.color};});
   for(var i=0;i<TAGS.length;i++){
     var ni=document.getElementById('tagname_'+i),ci=document.getElementById('tagcolor_'+i);
     if(ni)TAGS[i].name=ni.value.trim(); if(ci)TAGS[i].color=ci.value;
   }
-  try{ await apiPut('/api/tmi-tags',{tags:TAGS}); status('标签已保存'); }catch(e){ status('保存失败'); }
+  // Propagate renames to local TMI data (for immediate UI update)
+  for(var i=0;i<TAGS.length;i++){
+    if(oldTags[i].name!==TAGS[i].name){
+      var oldN=oldTags[i].name,newN=TAGS[i].name;
+      for(var j=0;j<ALL_TMIS.length;j++){
+        var cats=getCategories(ALL_TMIS[j]),idx=cats.indexOf(oldN);
+        if(idx>-1){cats[idx]=newN;ALL_TMIS[j].categories=JSON.stringify(cats);ALL_TMIS[j].category=cats[0]||'';}
+      }
+    }
+  }
+  try{ await apiPut('/api/tmi-tags',{tags:TAGS,oldTags:oldTags}); status('标签已保存'); }catch(e){ status('保存失败'); }
   renderTagManager(); renderCategories(); renderTmiList();
 }
 function resetTags(){

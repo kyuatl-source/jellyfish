@@ -108,6 +108,7 @@ class TmiTag(BaseModel):
 
 class TmiTagsUpdate(BaseModel):
     tags: list[TmiTag]
+    oldTags: list[TmiTag] | None = None
 
 
 # ── 首页 ──
@@ -197,7 +198,8 @@ def list_tmi_tags():
 
 @app.put("/api/tmi-tags")
 def save_tmi_tags_endpoint(body: TmiTagsUpdate):
-    save_tmi_tags([t.model_dump() for t in body.tags])
+    old = [t.model_dump() for t in body.oldTags] if body.oldTags else None
+    save_tmi_tags([t.model_dump() for t in body.tags], old)
     return {"ok": True}
 
 
