@@ -16,6 +16,7 @@ from database import (
     update_idol,
     get_counselings, search_counseling,
     add_counseling, update_counseling, delete_counseling,
+    get_tmi_tags, save_tmi_tags,
 )
 
 
@@ -100,6 +101,15 @@ class CounselingUpdate(BaseModel):
     quote: str | None = None
 
 
+class TmiTag(BaseModel):
+    name: str
+    color: str
+
+
+class TmiTagsUpdate(BaseModel):
+    tags: list[TmiTag]
+
+
 # ── 首页 ──
 @app.get("/")
 def index():
@@ -174,6 +184,20 @@ def put_tmi(tmi_id: int, body: TmiUpdate):
 @app.delete("/api/tmis/{tmi_id}")
 def remove_tmi(tmi_id: int):
     delete_tmi(tmi_id)
+    return {"ok": True}
+
+
+# ── 标签管理 ──
+
+@app.get("/api/tmi-tags")
+def list_tmi_tags():
+    tags = get_tmi_tags()
+    return {"tags": tags}
+
+
+@app.put("/api/tmi-tags")
+def save_tmi_tags_endpoint(body: TmiTagsUpdate):
+    save_tmi_tags([t.model_dump() for t in body.tags])
     return {"ok": True}
 
 

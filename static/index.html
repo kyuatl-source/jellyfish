@@ -263,21 +263,15 @@
     text-transform: uppercase; padding: 2px 8px; border: 1.5px solid var(--ink);
   }
   .badge.counseling { background: var(--ink); color: var(--white); }
-  .badge.cat-性格习惯 { border-color: #5a4ac8; color: #5a4ac8; }
-  .badge.cat-人际关系 { border-color: #c83a6a; color: #c83a6a; }
-  .badge.cat-价值观念 { border-color: #3a3ac8; color: #3a3ac8; }
-  .badge.cat-兴趣爱好 { border-color: #2a8a3a; color: #2a8a3a; }
-  .badge.cat-成长经历 { border-color: #2a5ac8; color: #2a5ac8; }
-  .badge.cat-日常碎片 { border-color: #2a7a5a; color: #2a7a5a; }
-  .badge.cat-身体小细节 { border-color: #8a7a10; color: #8a7a10; }
-  .badge.cat-语言能力 { border-color: #1a7a7a; color: #1a7a7a; }
-  .badge.cat-饮食偏好 { border-color: #8a5a2a; color: #8a5a2a; }
-  .badge.cat-恐惧与反应 { border-color: #c83020; color: #c83020; }
-  .badge.cat-🦒 { border-color: #e8a020; color: #e8a020; }
-  .badge.cat-🐺 { border-color: #6b7b8d; color: #6b7b8d; }
-  .badge.cat-🐶 { border-color: #c87830; color: #c87830; }
-  .badge.cat-🐰 { border-color: #e87890; color: #e87890; }
-  .badge.cat-🐥 { border-color: #f0b010; color: #f0b010; }
+
+  /* ══ Tag Manager (admin) ══ */
+  .tag-manager { display: none; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--light-gray); }
+  .admin-show .tag-manager { display: block; }
+  .tag-manager .tag-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .tag-manager .tag-row input[type="text"] { padding: 4px 8px; border: 1px solid var(--light-gray); font-size: 11px; font-family: var(--sans); background: transparent; outline: none; min-width: 80px; }
+  .tag-manager .tag-row input[type="color"] { width: 28px; height: 24px; border: none; cursor: none; padding: 0; }
+  .tag-manager .tag-row button { font-size: 10px; padding: 3px 8px; cursor: none; }
+  .tag-manager .add-tag-btn { font-size: 11px; margin-top: 6px; cursor: none; border: 1px dashed var(--gray); padding: 4px 12px; background: none; }
 
   .card .content { font-size: 15px; font-weight: 500; flex: 1; }
 
@@ -406,6 +400,13 @@
 
 <div class="filter-row" id="tabs"><span class="loading-text">---</span></div>
 
+<div class="tag-manager" id="tagManager">
+  <div style="font-size:11px;font-weight:700;margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase;">管理标签 / MANAGE TAGS</div>
+  <div id="tagList"></div>
+  <button class="add-tag-btn" onclick="addTag()">+ 新增标签</button>
+  <div style="margin-top:8px"><button onclick="saveTags()" style="font-size:11px;padding:4px 12px;cursor:none;">保存标签</button><button onclick="resetTags()" style="font-size:11px;padding:4px 12px;cursor:none;margin-left:6px;">恢复默认</button></div>
+</div>
+
 <div class="card-grid" id="tmiList"><span class="loading-text">LOADING...</span></div>
 <div id="tmiPagination"></div>
 <div class="add-btn" id="addTmiBtn" style="display:none"><button onclick="newTmi()">+ 新增 TMI</button></div>
@@ -424,7 +425,9 @@
 </div>
 
 <script>
-const TMI_CATEGORIES = ['性格习惯','人际关系','价值观念','兴趣爱好','成长经历','日常碎片','身体小细节','语言能力','饮食偏好','恐惧与反应','🦒','🐺','🐶','🐰','🐥'];
+const DEFAULT_TAGS = [{name:'性格习惯',color:'#5a4ac8'},{name:'人际关系',color:'#c83a6a'},{name:'价值观念',color:'#3a3ac8'},{name:'兴趣爱好',color:'#2a8a3a'},{name:'成长经历',color:'#2a5ac8'},{name:'日常碎片',color:'#2a7a5a'},{name:'身体小细节',color:'#8a7a10'},{name:'语言能力',color:'#1a7a7a'},{name:'饮食偏好',color:'#8a5a2a'},{name:'恐惧与反应',color:'#c83020'},{name:'🦒',color:'#e8a020'},{name:'🐺',color:'#6b7b8d'},{name:'🐶',color:'#c87830'},{name:'🐰',color:'#e87890'},{name:'🐥',color:'#f0b010'}];
+const PALETTE = ['#5a4ac8','#c83a6a','#3a3ac8','#2a8a3a','#2a5ac8','#2a7a5a','#8a7a10','#1a7a7a','#8a5a2a','#c83020','#e8a020','#6b7b8d','#c87830','#e87890','#f0b010','#e85d30','#3d8a6a','#7a4ac8','#2a8a8a','#c85a8a','#5a8a2a','#8a3a6a','#4a7a8a','#a85a3a'];
+var TAGS = DEFAULT_TAGS.map(function(t){return {name:t.name,color:t.color};});
 const PAGE_SIZE = 15;
 const ADMIN_PASSWORD = '03280522';
 
@@ -480,7 +483,7 @@ document.addEventListener('mousemove', function(e){
 // ── Helpers ──
 function escHtml(s){ var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 function escAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function catClass(cat){ return 'cat-'+cat; }
+function tagColor(name){ var t=TAGS.find(function(x){return x.name===name;}); return t?t.color:'#888'; }
 function getCategories(tmi){
   if(tmi.categories){ try{var a=JSON.parse(tmi.categories); if(a.length)return a;}catch(e){} }
   if(tmi.category)return[tmi.category];
@@ -504,8 +507,9 @@ async function apiDelete(p){var r=await fetch(p,{method:'DELETE'});if(!r.ok)thro
 async function loadAllData(){
   loading=true; renderAll();
   try{
-    var _a=await Promise.all([apiGet('/api/tmis?idol_id=1'),apiGet('/api/counselings?idol_id=1')]);
+    var _a=await Promise.all([apiGet('/api/tmis?idol_id=1'),apiGet('/api/counselings?idol_id=1'),apiGet('/api/tmi-tags')]);
     ALL_TMIS=_a[0]; ALL_COUNSELINGS=_a[1]; loading=false;
+    if(_a[2].tags)TAGS=_a[2].tags;
     status(ALL_TMIS.length+' TMI  ·  '+ALL_COUNSELINGS.length+' 烦恼商谈');
   }catch(e){loading=false;status('加载失败：'+e.message);ALL_TMIS=[];ALL_COUNSELINGS=[];}
   renderAll();
@@ -526,10 +530,10 @@ function renderStats(){
 // ── Categories ──
 function renderCategories(){
   var tabs=document.getElementById('tabs');if(loading){tabs.innerHTML='<span class="loading-text">---</span>';return;}
-  var counts={};for(var i=0;i<TMI_CATEGORIES.length;i++)counts[TMI_CATEGORIES[i]]=0;
+  var counts={};for(var i=0;i<TAGS.length;i++)counts[TAGS[i].name]=0;
   for(var i=0;i<ALL_TMIS.length;i++){var cats=getCategories(ALL_TMIS[i]);for(var j=0;j<cats.length;j++){if(counts[cats[j]]!==undefined)counts[cats[j]]++;}}
   var h='<span class="filter-tab active" onclick="filterTMI(null,event)">全部</span>';
-  for(var i=0;i<TMI_CATEGORIES.length;i++){var c=TMI_CATEGORIES[i];if(counts[c]>0)h+='<span class="filter-tab" onclick="filterTMI(\''+escAttr(c)+'\',event)">'+escHtml(c)+'<span class="count">'+counts[c]+'</span></span>';}
+  for(var i=0;i<TAGS.length;i++){var c=TAGS[i].name;if(counts[c]>0)h+='<span class="filter-tab" onclick="filterTMI(\''+escAttr(c)+'\',event)">'+escHtml(c)+'<span class="count">'+counts[c]+'</span></span>';}
   tabs.innerHTML=h;
 }
 
@@ -537,7 +541,7 @@ function renderCategories(){
 function renderBadges(t){
   var cats=getCategories(t);if(!cats.length)return'';
   var h='<div class="badges">';
-  for(var i=0;i<cats.length;i++)h+='<span class="badge '+catClass(cats[i])+'">'+escHtml(cats[i])+'</span>';
+  for(var i=0;i<cats.length;i++){var c=tagColor(cats[i]);h+='<span class="badge" style="border-color:'+c+';color:'+c+'">'+escHtml(cats[i])+'</span>';}
   return h+'</div>';
 }
 
@@ -554,7 +558,7 @@ function spanClass(i,total){
 function renderTmiCard(t,editing,idx,total){
   if(editing){
     var curCats=getCategories(t),checks='';
-    for(var i=0;i<TMI_CATEGORIES.length;i++){var c=TMI_CATEGORIES[i],ch=curCats.indexOf(c)>-1?' checked':'';checks+='<label style="display:inline-flex;align-items:center;gap:3px;margin:2px 8px 2px 0;font-size:11px;cursor:none"><input type="checkbox" id="ecat_'+t.id+'_'+i+'" value="'+escAttr(c)+'"'+ch+'><span class="badge '+catClass(c)+'">'+escHtml(c)+'</span></label>';}
+    for(var i=0;i<TAGS.length;i++){var c=TAGS[i].name,ch=curCats.indexOf(c)>-1?' checked':'',tc=tagColor(c);checks+='<label style="display:inline-flex;align-items:center;gap:3px;margin:2px 8px 2px 0;font-size:11px;cursor:none"><input type="checkbox" id="ecat_'+t.id+'_'+i+'" value="'+escAttr(c)+'"'+ch+'><span class="badge" style="border-color:'+tc+';color:'+tc+'">'+escHtml(c)+'</span></label>';}
     return'<div class="card editing" data-tmi-id="'+t.id+'"><div style="margin-bottom:6px">'+checks+'</div><textarea id="ect_'+t.id+'">'+escHtml(t.content)+'</textarea><input id="eqt_'+t.id+'" value="'+escAttr(t.quote||'')+'" placeholder="引用原句（可选）"/><div class="edit-btns"><button class="btn-save" onclick="saveTmi(\''+t.id+'\')">保存</button><button class="btn-cancel" onclick="cancelEditTmi(\''+t.id+'\')">取消</button></div></div>';
   }
   var adm=isAdmin?'<div class="admin-actions"><button onclick="editTmi(\''+t.id+'\')">E</button><button class="danger" onclick="deleteTmi(\''+t.id+'\')">D</button></div>':'';
@@ -582,14 +586,14 @@ function changeTmiPage(n){tmiPage=n;renderTmiList();window.scrollTo({top:0,behav
 function editTmi(id){var t=ALL_TMIS.find(function(x){return x.id==id;});if(!t)return;document.querySelector('.card[data-tmi-id="'+id+'"]').outerHTML=renderTmiCard(t,true,0,1);}
 function cancelEditTmi(id){var t=ALL_TMIS.find(function(x){return x.id==id;});if(!t)return;var el=document.querySelector('.card.editing[data-tmi-id="'+id+'"]');if(!el)return;var idx=Array.from(el.parentNode.children).indexOf(el);el.outerHTML=renderTmiCard(t,false,idx,el.parentNode.children.length);}
 async function saveTmi(id){
-  var cats=[];for(var i=0;i<TMI_CATEGORIES.length;i++){var cb=document.getElementById('ecat_'+id+'_'+i);if(cb&&cb.checked)cats.push(cb.value);}
+  var cats=[];for(var i=0;i<TAGS.length;i++){var cb=document.getElementById('ecat_'+id+'_'+i);if(cb&&cb.checked)cats.push(cb.value);}
   var content=document.getElementById('ect_'+id).value,quote=document.getElementById('eqt_'+id).value;
   var body={content:content,quote:quote,categories:JSON.stringify(cats),category:cats.length>0?cats[0]:''};
   try{await apiPut('/api/tmis/'+id,body);var t=ALL_TMIS.find(function(x){return x.id==id;});if(t){t.content=content;t.quote=quote;t.categories=JSON.stringify(cats);t.category=body.category;}status('TMI 已保存');}catch(e){status('保存失败：'+e.message);}
   renderTmiList();renderCategories();
 }
 async function deleteTmi(id){if(!confirm('确定删除？'))return;try{await apiDelete('/api/tmis/'+id);ALL_TMIS=ALL_TMIS.filter(function(x){return x.id!=id;});status('已删除');}catch(e){status('删除失败：'+e.message);}renderTmiList();renderStats();renderCategories();}
-async function newTmi(){try{var cats=JSON.stringify(['性格习惯']);var resp=await apiPost('/api/tmis',{idol_id:1,content:'',category:'性格习惯',categories:cats,quote:''});var t={id:resp.id,content:'',category:'性格习惯',categories:cats,quote:'',post_url:'',post_date:''};ALL_TMIS.unshift(t);status('新 TMI 已创建');}catch(e){status('创建失败：'+e.message);return;}renderTmiList();renderStats();renderCategories();setTimeout(function(){editTmi(ALL_TMIS[0].id);},50);}
+async function newTmi(){try{var dc=TAGS.length>0?TAGS[0].name:'未分类';var cats=JSON.stringify([dc]);var resp=await apiPost('/api/tmis',{idol_id:1,content:'',category:dc,categories:cats,quote:''});var t={id:resp.id,content:'',category:'性格习惯',categories:cats,quote:'',post_url:'',post_date:''};ALL_TMIS.unshift(t);status('新 TMI 已创建');}catch(e){status('创建失败：'+e.message);return;}renderTmiList();renderStats();renderCategories();setTimeout(function(){editTmi(ALL_TMIS[0].id);},50);}
 
 // ── Counseling ──
 function renderCounselingCard(c,editing,idx,total){
@@ -620,6 +624,37 @@ async function newCounseling(){try{var resp=await apiPost('/api/counselings',{id
 function doSearch(){var q=document.getElementById('searchInput').value.trim();if(!q){tmiSearch=null;counselingSearch=null;tmiFilter=null;}else{tmiSearch=q;counselingSearch=q;tmiFilter=null;}document.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});if(!q){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;counselingPage=1;renderTmiList();renderCounselingList();}
 function filterTMI(cat,ev){tmiFilter=cat;tmiSearch=null;document.getElementById('searchInput').value='';var tabs=document.querySelectorAll('.filter-tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');if(cat&&ev)ev.target.classList.add('active');else if(!cat){var f=document.querySelector('.filter-tab');if(f)f.classList.add('active');}tmiPage=1;renderTmiList();}
 
+// ── Tag Management ──
+function renderTagManager(){
+  if(!isAdmin){ document.getElementById('tagManager').style.display='none'; return; }
+  document.getElementById('tagManager').style.display='block';
+  var h='';
+  for(var i=0;i<TAGS.length;i++){
+    var t=TAGS[i];
+    h+='<div class="tag-row"><input type="color" value="'+t.color+'" id="tagcolor_'+i+'" title="颜色"><input type="text" value="'+escAttr(t.name)+'" id="tagname_'+i+'" placeholder="标签名"><button onclick="deleteTag('+i+')" style="color:var(--red)">删除</button></div>';
+  }
+  document.getElementById('tagList').innerHTML=h;
+}
+function addTag(){
+  var used=TAGS.map(function(t){return t.color;});
+  var nc=PALETTE.find(function(c){return used.indexOf(c)===-1;})||PALETTE[TAGS.length%PALETTE.length];
+  TAGS.push({name:'新标签',color:nc}); renderTagManager();
+}
+function deleteTag(i){ TAGS.splice(i,1); renderTagManager(); }
+async function saveTags(){
+  for(var i=0;i<TAGS.length;i++){
+    var ni=document.getElementById('tagname_'+i),ci=document.getElementById('tagcolor_'+i);
+    if(ni)TAGS[i].name=ni.value.trim(); if(ci)TAGS[i].color=ci.value;
+  }
+  try{ await apiPut('/api/tmi-tags',{tags:TAGS}); status('标签已保存'); }catch(e){ status('保存失败'); }
+  renderTagManager(); renderCategories(); renderTmiList();
+}
+function resetTags(){
+  if(!confirm('恢复默认标签？'))return;
+  TAGS=DEFAULT_TAGS.map(function(t){return {name:t.name,color:t.color};});
+  renderTagManager(); renderCategories(); renderTmiList();
+}
+
 // ── Admin ──
 function toggleAdminMode(){
   if(isAdmin){isAdmin=false;document.getElementById('navAdmin').classList.remove('active');document.body.classList.remove('admin-show');}
@@ -631,7 +666,7 @@ function toggleAdminMode(){
 function exportData(){var blob=new Blob([JSON.stringify({tmis:ALL_TMIS,counselings:ALL_COUNSELINGS},null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jellyhooish_data.json';a.click();}
 
 // ── Init ──
-function renderAll(){renderStats();renderCategories();renderTmiList();renderCounselingList();}
+function renderAll(){renderStats();renderCategories();renderTmiList();renderCounselingList();renderTagManager();}
 document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
 loadAllData();
 </script>

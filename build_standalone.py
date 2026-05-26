@@ -16,6 +16,9 @@ for arr in [tmis, counselings]:
             if k not in keep_keys:
                 del item[k]
 
+tag_row = conn.execute("SELECT value FROM meta WHERE key = 'tmi_tags'").fetchone()
+custom_tags_json = tag_row['value'] if tag_row else 'null'
+
 conn.close()
 
 tmis_json = json.dumps(tmis, ensure_ascii=False)
@@ -36,6 +39,7 @@ html = template.replace('SPLASH_B64', splash_b64)
 html = html.replace('{{TMIS_JSON}}', tmis_json)
 html = html.replace('{{COUNSELINGS_JSON}}', counselings_json)
 html = html.replace('{{CATEGORIES_JSON}}', categories_json)
+html = html.replace('{{CUSTOM_TAGS_JSON}}', custom_tags_json)
 
 output_path = '/Users/doublle/Desktop/追星助手/standalone.html'
 with open(output_path, 'w', encoding='utf-8') as f:

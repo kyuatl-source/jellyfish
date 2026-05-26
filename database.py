@@ -403,6 +403,32 @@ def delete_counseling(counseling_id: int):
     conn.close()
 
 
+# ── 标签管理 ────────────────────────────────────
+
+def get_tmi_tags() -> list[dict] | None:
+    """获取自定义 TMI 标签列表，无数据时返回 None"""
+    conn = get_connection()
+    row = conn.execute("SELECT value FROM meta WHERE key = 'tmi_tags'").fetchone()
+    conn.close()
+    if row:
+        try:
+            return json.loads(row["value"])
+        except:
+            return None
+    return None
+
+
+def save_tmi_tags(tags: list[dict]):
+    """保存自定义 TMI 标签列表"""
+    conn = get_connection()
+    conn.execute(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES ('tmi_tags', ?)",
+        (json.dumps(tags, ensure_ascii=False),)
+    )
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     init_db()
     stats = get_db_stats()
