@@ -69,20 +69,6 @@ CREATE INDEX IF NOT EXISTS idx_tmis_idol ON tmis(idol_id);
 CREATE INDEX IF NOT EXISTS idx_tmis_category ON tmis(category);
 CREATE INDEX IF NOT EXISTS idx_posts_idol ON posts(idol_id);
 
-CREATE TABLE IF NOT EXISTS counselings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    idol_id INTEGER REFERENCES idols(id),
-    content TEXT NOT NULL,
-    quote TEXT DEFAULT '',
-    post_id INTEGER REFERENCES posts(id),
-    post_url TEXT DEFAULT '',
-    post_date TEXT DEFAULT '',
-    post_likes INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now', 'localtime'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_counselings_idol ON counselings(idol_id);
-
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -196,7 +182,7 @@ def get_idol_tmis(idol_id: int, category: str = None, confidence: str = None) ->
     if confidence:
         conditions.append("confidence = ?")
         params.append(confidence)
-    sql = f"SELECT * FROM tmis WHERE {' AND '.join(conditions)} ORDER BY post_date DESC"
+    sql = f"SELECT * FROM tmis WHERE {' AND '.join(conditions)} ORDER BY id DESC"
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -220,8 +206,7 @@ def get_db_stats() -> dict:
         "posts": conn.execute("SELECT COUNT(*) as n FROM posts").fetchone()["n"],
         "tmis": conn.execute("SELECT COUNT(*) as n FROM tmis").fetchone()["n"],
         "schedules": conn.execute("SELECT COUNT(*) as n FROM schedules").fetchone()["n"],
-        "counselings": conn.execute("SELECT COUNT(*) as n FROM counselings").fetchone()["n"],
-    }
+        }
 
 
 # ── 增删改 ──────────────────────────────────────
@@ -325,83 +310,6 @@ def get_schedules(idol_id: int, event_type: str = None) -> list[dict]:
 
 
 # ── 烦恼商谈 ────────────────────────────────────
-
-def insert_counselings(conn: sqlite3.Connection, items: list[dict], idol_id: int):
-    cur = conn.executemany("""
-        INSERT INTO counselings (idol_id, content, quote, post_id, post_url, post_date, post_likes)
-        VALUES (?,?,?,?,?,?,?)
-    """, [
-        (
-            idol_id, c["content"], c.get("quote", ""), c.get("post_id"),
-            c.get("post_url", ""), c.get("post_date", ""), c.get("post_likes", 0)
-        )
-        for c in items
-    ])
-    return cur.rowcount
-
-
-def get_counselings(idol_id: int) -> list[dict]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM counselings WHERE idol_id = ? ORDER BY post_date DESC",
-        (idol_id,)
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def search_counseling(keyword: str, idol_id: int = None, limit: int = 20) -> list[dict]:
-    conn = get_connection()
-    pattern = f"%{keyword}%"
-    conditions = ["(content LIKE ? OR quote LIKE ?)"]
-    params = [pattern, pattern]
-    if idol_id:
-        conditions.append("idol_id = ?")
-        params.append(idol_id)
-    sql = f"""
-        SELECT c.*, i.name as idol_name FROM counselings c
-        JOIN idols i ON c.idol_id = i.id
-        WHERE {' AND '.join(conditions)}
-        ORDER BY c.post_date DESC LIMIT ?
-    """
-    params.append(limit)
-    rows = conn.execute(sql, params).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def add_counseling(idol_id: int, content: str, quote: str = "",
-                   post_id: int = None, post_url: str = "",
-                   post_date: str = "", post_likes: int = 0) -> int:
-    conn = get_connection()
-    cur = conn.execute(
-        """INSERT INTO counselings (idol_id, content, quote, post_id, post_url, post_date, post_likes)
-           VALUES (?,?,?,?,?,?,?)""",
-        (idol_id, content, quote, post_id, post_url, post_date, post_likes))
-    conn.commit()
-    new_id = cur.lastrowid
-    conn.close()
-    return new_id
-
-
-def update_counseling(counseling_id: int, **kwargs):
-    allowed = {"content", "quote"}
-    updates = {k: v for k, v in kwargs.items() if k in allowed}
-    if not updates:
-        return
-    conn = get_connection()
-    sets = ", ".join(f"{k} = ?" for k in updates)
-    conn.execute(f"UPDATE counselings SET {sets} WHERE id = ?", list(updates.values()) + [counseling_id])
-    conn.commit()
-    conn.close()
-
-
-def delete_counseling(counseling_id: int):
-    conn = get_connection()
-    conn.execute("DELETE FROM counselings WHERE id = ?", (counseling_id,))
-    conn.commit()
-    conn.close()
-
 
 # ── 标签管理 ────────────────────────────────────
 

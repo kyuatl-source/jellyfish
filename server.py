@@ -14,8 +14,6 @@ from database import (
     add_tmi, update_tmi, delete_tmi,
     add_schedule, update_schedule, delete_schedule,
     update_idol,
-    get_counselings, search_counseling,
-    add_counseling, update_counseling, delete_counseling,
     get_tmi_tags, save_tmi_tags,
 )
 
@@ -85,20 +83,6 @@ class IdolUpdate(BaseModel):
     birthday: str | None = None
     notes: str | None = None
 
-
-class CounselingCreate(BaseModel):
-    idol_id: int
-    content: str
-    quote: str = ""
-    post_id: int | None = None
-    post_url: str = ""
-    post_date: str = ""
-    post_likes: int = 0
-
-
-class CounselingUpdate(BaseModel):
-    content: str | None = None
-    quote: str | None = None
 
 
 class TmiTag(BaseModel):
@@ -231,41 +215,6 @@ def put_schedule(sched_id: int, body: ScheduleUpdate):
 @app.delete("/api/schedules/{sched_id}")
 def remove_schedule(sched_id: int):
     delete_schedule(sched_id)
-    return {"ok": True}
-
-
-# ── 烦恼商谈 ──
-@app.get("/api/counselings")
-def list_counselings(idol_id: int = Query(1)):
-    return get_counselings(idol_id)
-
-
-@app.get("/api/counselings/search")
-def search_counselings(q: str = Query(..., min_length=1)):
-    return search_counseling(q)
-
-
-@app.post("/api/counselings")
-def create_counseling(body: CounselingCreate):
-    cid = add_counseling(
-        body.idol_id, body.content, quote=body.quote,
-        post_id=body.post_id, post_url=body.post_url,
-        post_date=body.post_date, post_likes=body.post_likes,
-    )
-    return {"ok": True, "id": cid}
-
-
-@app.put("/api/counselings/{counseling_id}")
-def put_counseling(counseling_id: int, body: CounselingUpdate):
-    kwargs = body.model_dump(exclude_none=True)
-    if kwargs:
-        update_counseling(counseling_id, **kwargs)
-    return {"ok": True}
-
-
-@app.delete("/api/counselings/{counseling_id}")
-def remove_counseling(counseling_id: int):
-    delete_counseling(counseling_id)
     return {"ok": True}
 
 

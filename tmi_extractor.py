@@ -6,13 +6,13 @@ import json
 import csv
 import time
 import os
-import anthropic
+from openai import OpenAI
 from database import get_connection, insert_tmis
 from collections import Counter
 
 # ── 配置 ──────────────────────────────────────────
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MIN_LIKES         = 100       # 最低赞数阈值
+DEEPSEEK_API_KEY  = os.environ.get("DEEPSEEK_API_KEY", "")
+MIN_LIKES         = 50        # 最低赞数阈值
 BATCH_SIZE        = 5         # 每批发给 AI 的帖子数
 DELAY             = 1.0        # 批次间隔（秒）
 IDOL_ID           = 1          # 数据库中的 idol id
@@ -22,16 +22,17 @@ IDOL_NAME         = "韩志薰 (Jihoon, TWS成员)"
 # ──────────────────────────────────────────────────
 
 TMI_CATEGORIES = {
-    "饮食偏好":   "最爱食物、忌口、零食、饮料、家乡口味等",
-    "性格习惯":   "起床/睡眠习惯、整洁度、时间观念、社交风格等",
-    "兴趣爱好":   "游戏、运动、追剧、音乐、收藏等课余爱好",
-    "人际关系":   "成员/朋友互动、家人提及、前辈后辈关系等",
-    "成长经历":   "学生时代、出道前故事、家乡记忆等",
-    "语言能力":   "外语水平、口头禅、方言、说话习惯等",
-    "身体小细节": "小动作、惯用手、身体特征、外貌细节等",
-    "恐惧与反应": "怕什么、惊喜反应、应激反应等",
-    "价值观念":   "人生观、对工作的态度、喜欢的事物类型等",
-    "日常碎片":   "不属于以上分类的日常小细节",
+    "比奇堡海滩": "志薰与圈内其他团体/编舞师/伴舞/声乐老师的互动",
+    "pro idol":   "在idol本职工作上突出的点，舞台表现、专业能力等",
+    "鮀一家":     "与家人的故事，提及父母、兄弟姐妹等",
+    "来时鮀":     "出道前和小时候的故事，练习生时期、童年回忆",
+    "鮀之身":     "与身体相关的内容，外貌、健康、小动作、身体特征",
+    "鮀日常":     "日常生活碎片，训练、休息日、出行等日常小事",
+    "鮀言鮀語":   "比较深刻或有意思的话，人生感悟、金句、口头禅",
+    "鮀饲料":     "与吃的东西有关，喜欢的食物、零食、饮食偏好",
+    "任天堂":     "动物森友会/人森相关，游戏相关兴趣",
+    "欧巴":       "提到欧巴的金句，关于哥哥们的趣事或发言",
+    "DOORRRI":    "关于一只叫Doori的小狗的内容",
 }
 
 SYSTEM_PROMPT = f"""你是一个专业的偶像信息整理助手。
@@ -100,22 +101,22 @@ def build_user_message(posts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def extract_tmi_batch(client: anthropic.Anthropic, posts: list[dict]) -> list[dict]:
+def extract_tmi_batch(client: OpenAI, posts: list[dict]) -> list[dict]:
     user_msg = build_user_message(posts)
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6-20250514",
-            max_tokens=1500,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_msg}],
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            max_tokens=2000,
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
         )
-        text_blocks = [b for b in response.content if b.type == "text"]
-        if not text_blocks:
-            print("  [警告] 响应中无文本内容")
-            return []
-        raw = text_blocks[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         if raw.startswith("```"):
-            raw = raw.split("```")[1]
+            parts = raw.split("```")
+            raw = parts[1] if len(parts) > 1 else raw
             if raw.startswith("json"):
                 raw = raw[4:]
         raw = raw.strip()
@@ -124,7 +125,7 @@ def extract_tmi_batch(client: anthropic.Anthropic, posts: list[dict]) -> list[di
     except json.JSONDecodeError as e:
         print(f"  [警告] JSON 解析失败: {e}")
         return []
-    except anthropic.APIError as e:
+    except Exception as e:
         print(f"  [错误] API 调用失败: {e}")
         return []
 
@@ -186,7 +187,8 @@ def print_summary(all_tmi: list[dict]):
     print(f"✅ 本轮提取 TMI：{len(all_tmi)} 条（高可信度 {high} 条）")
     print("📂 分类分布：")
     for cat, count in counts.most_common():
-        print(f"  {cat:<10} {'█' * count} {count}")
+        bar = "█" * min(count, 30)
+        print(f"  {cat:<12} {bar} {count}")
     print(f"\n📌 高可信度示例（最多3条）：")
     samples = [t for t in all_tmi if t.get("confidence") == "high"][:3]
     for t in samples:
@@ -196,16 +198,38 @@ def print_summary(all_tmi: list[dict]):
 
 def main():
     print("=" * 50)
-    print("TMI 提取器 · 高赞帖子分批提取")
+    print("TMI 提取器 · DeepSeek 驱动 · 高赞帖子分批提取")
     print("=" * 50)
 
-    if not ANTHROPIC_API_KEY:
-        print("❌ 请设置 ANTHROPIC_API_KEY 环境变量")
+    if not DEEPSEEK_API_KEY:
+        print("❌ 请设置 DEEPSEEK_API_KEY 环境变量")
         return
 
-    # 1. 从数据库加载帖子
-    posts = load_posts_from_db(MIN_LIKES)
-    print(f"≥{MIN_LIKES}赞原创帖：{len(posts)} 条")
+    # 1. 从 weibo_posts.json 加载新爬取的帖子
+    import os as _os
+    posts_file = "weibo_posts.json"
+    if not _os.path.exists(posts_file):
+        print(f"❌ 找不到 {posts_file}，请先运行 python weibo_scraper.py --new")
+        return
+    with open(posts_file, "r", encoding="utf-8") as f:
+        all_scraped = json.load(f)
+    # 构建帖子字典（适配 load_posts_from_db 的字段名）
+    posts = []
+    for p in all_scraped:
+        posts.append({
+            "id": p["id"],
+            "mid": p.get("mid", ""),
+            "text": p.get("text", ""),
+            "is_retweet": p.get("is_retweet", 0),
+            "original_text": p.get("original_text", ""),
+            "url": p.get("url", ""),
+            "created_at": p.get("created_at", ""),
+            "likes_count": p.get("likes", 0),
+            "reposts_count": p.get("reposts", 0),
+            "comments_count": p.get("comments", 0),
+            "pics_count": p.get("pics", 0),
+        })
+    print(f"新爬取帖子：{len(posts)} 条")
 
     # 2. 跳过已分析过的帖子（断点续传）
     analyzed = get_analyzed_post_ids()
@@ -220,8 +244,11 @@ def main():
         print("✅ 所有帖子已分析完毕")
         return
 
-    # 3. 初始化客户端
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    # 3. 初始化 DeepSeek 客户端
+    client = OpenAI(
+        api_key=DEEPSEEK_API_KEY,
+        base_url="https://api.deepseek.com/v1",
+    )
 
     # 4. 分批提取
     all_new_tmi = []
@@ -230,10 +257,8 @@ def main():
     for i in range(0, len(remaining), BATCH_SIZE):
         batch = remaining[i : i + BATCH_SIZE]
         batch_num = i // BATCH_SIZE + 1
-        print(f"[{batch_num}/{total_batches}] 分析帖子 "
-              f"(赞{min(p.get('likes_count',0) for p in batch)}~"
-              f"{max(p.get('likes_count',0) for p in batch)})...",
-              end=" ")
+        likes_range = f"{min(p.get('likes_count',0) for p in batch)}~{max(p.get('likes_count',0) for p in batch)}"
+        print(f"[{batch_num}/{total_batches}] 分析帖子 (赞{likes_range})...", end=" ")
 
         tmi_batch = extract_tmi_batch(client, batch)
         tmi_batch = enrich_tmi(tmi_batch, batch)
@@ -243,7 +268,7 @@ def main():
         if tmi_batch:
             save_to_db(tmi_batch)
 
-        print(f"提取 {len(tmi_batch)} 条，累计 {len(all_new_tmi)} 条（本轮）")
+        print(f"提取 {len(tmi_batch)} 条，累计 {len(all_new_tmi)} 条")
 
         # 每 20 批存档一次 JSON/CSV
         if batch_num % 20 == 0:

@@ -1,7 +1,9 @@
 """
 微博主页爬取脚本
 目标：https://weibo.com/u/7730426245
-用法：python weibo_scraper.py
+用法：
+  python weibo_scraper.py           # 全量抓取
+  python weibo_scraper.py --new     # 增量模式：只抓新帖，遇到数据库中已有帖子即停
 输出：weibo_posts.json（所有帖子）+ weibo_posts.csv（便于查看）
 
 说明：使用 weibo.com 桌面端 AJAX 接口，需要登录 Cookie。
@@ -12,27 +14,32 @@ import json
 import csv
 import time
 import re
+import sys
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 # ── 配置 ──────────────────────────────────────────
 UID = "7730426245"
-MAX_PAGES = 700            # 上限 667 页（~13334条），跑完或遇到截止日期自动停
+MAX_PAGES = 100            # 增量模式最多抓 100 页
 DELAY = 1.5                # 每页间隔（秒）
-STOP_BEFORE = "2024-01-01" # 抓到此日期之前的帖子时停止（留空=不限制）
+STOP_BEFORE = "2024-01-01" # 抓到此日期之前的帖子时停止（全量模式用）
 OUTPUT_JSON = "weibo_posts.json"
 OUTPUT_CSV  = "weibo_posts.csv"
 CHECKPOINT  = "weibo_checkpoint.json"  # 断点续传
 SAVE_EVERY   = 10          # 每 N 页保存一次
+DB_PATH = Path(__file__).parent / "star_tracker.db"
+INCREMENTAL = "--new" in sys.argv  # 增量模式
 # ──────────────────────────────────────────────────
 
-COOKIE = "_s_tentry=-; Apache=3334470387973.2407.1779180366111; SINAGLOBAL=3334470387973.2407.1779180366111; ULV=1779180366112:1:1:1:3334470387973.2407.1779180366111:; XSRF-TOKEN=GHwhHw5E01wat2htrKGm3uik; SCF=AsUuX1Qi0uuGj0P1srWQLKD7dMMubEVPYNQ9HmDokMPBgvCN8m8zTsKYemas7Jhqg-_dCFAlZMlnRwDmu01FJVc.; SUB=_2A25HCVZNDeRhGeFJ6FIV8ijOzzmIHXVkZ9eFrDV8PUNbmtANLVjSkW9NfFRXXyeJqCw1E1Mvk-a_ZY2mJvFjEBzO; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WW78KRbSTBgeWRCXEpU47Fv5JpX5KzhUgL.FoMNe05XeoqESh-2dJLoIEBLxKBLBonLBKBLxK-L1h-L1heLxKBLB.2L1KBLxKBLBonLB-2t; ALF=02_1781838621; WBPSESS=Nv5h_w-bjXhp8H9z4CzshpYtIbKW7Aa_aIFB4-1urGQnMvp4SaCxSJ4OpGbZWkHxAUYrDRlJll00G0me311i_teNqyraiWanpDY9FDck-AUyK6OcnfjWB6aBpD-nzS29ZDxSLp0ABeGsXqZIyq7LfQ=="
+COOKIE = "SINAGLOBAL=3334470387973.2407.1779180366111; SCF=AsUuX1Qi0uuGj0P1srWQLKD7dMMubEVPYNQ9HmDokMPBgvCN8m8zTsKYemas7Jhqg-_dCFAlZMlnRwDmu01FJVc.; ULV=1779774094487:2:2:2:96492876095.89386.1779774094487:1779180366112; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WW78KRbSTBgeWRCXEpU47Fv5JpX5KMhUgL.FoMNe05XeoqESh-2dJLoIEBLxKBLBonLBKBLxK-L1h-L1heLxKBLB.2L1KBLxKBLBonLB-2t; XSRF-TOKEN=kMmVqyt_GItcPtUCNrgp2en-; ALF=1783052333; SUB=_2A25HG9t9DeRhGeFJ6FIV8ijOzzmIHXVkWVK1rDV8PUJbkNANLXf4kW1NfFRXX07gjz8y3rRwfnYF-gaaCrlA8KDg; WBPSESS=Nv5h_w-bjXhp8H9z4CzshpYtIbKW7Aa_aIFB4-1urGQnMvp4SaCxSJ4OpGbZWkHxAUYrDRlJll00G0me311i_lIMwGyTJ5aV3Epofs1COsaUX_Xfdr_qa3qTJlKmIMeBd6uNJFID8jWlwiN1nc6BUQ=="
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Referer": f"https://weibo.com/u/{UID}",
     "Accept": "application/json, text/plain, */*",
     "X-Requested-With": "XMLHttpRequest",
-    "X-XSRF-TOKEN": "GHwhHw5E01wat2htrKGm3uik",
+    "X-XSRF-TOKEN": "kMmVqyt_GItcPtUCNrgp2en-",
     "Cookie": COOKIE,
 }
 
@@ -104,6 +111,16 @@ def save_csv(posts, path):
     print(f"  → CSV  已保存：{path}")
 
 
+def get_existing_post_ids():
+    """从数据库获取已导入的帖子 ID 集合（增量模式用）"""
+    if not DB_PATH.exists():
+        return set()
+    conn = sqlite3.connect(str(DB_PATH))
+    ids = {r[0] for r in conn.execute("SELECT id FROM posts").fetchall()}
+    conn.close()
+    return ids
+
+
 def load_checkpoint():
     """加载断点数据，返回 (all_posts, seen_ids, last_page)"""
     import os
@@ -127,8 +144,15 @@ def save_checkpoint(posts, seen_ids, page):
 
 
 def main():
-    print(f"开始抓取 UID={UID} 的微博主页")
+    mode = "增量" if INCREMENTAL else "全量"
+    print(f"开始{mode}抓取 UID={UID} 的微博主页")
     print(f"最多 {MAX_PAGES} 页，间隔 {DELAY}s，每 {SAVE_EVERY} 页存档\n")
+
+    # 增量模式：加载数据库中已有的帖子 ID
+    db_existing_ids = set()
+    if INCREMENTAL:
+        db_existing_ids = get_existing_post_ids()
+        print(f"数据库中已有 {len(db_existing_ids)} 条帖子，遇到已知帖子即停止\n")
 
     all_posts, seen_ids, start_page = load_checkpoint()
     # 已有数据但无 checkpoint 时，从已有 JSON 恢复
@@ -151,15 +175,27 @@ def main():
             break
 
         posts = parse_posts(data, UID)
-        new_posts = [p for p in posts if p["id"] not in seen_ids]
+
+        # 增量模式：过滤已知帖子，仅当整页全是已知帖子时才停止
+        if INCREMENTAL:
+            new_on_page = [p for p in posts if p["id"] not in db_existing_ids]
+            known_on_page = len(posts) - len(new_on_page)
+            if known_on_page == len(posts) and known_on_page > 0:
+                print(f"整页 {len(posts)} 条均为已知帖子，增量抓取完成！")
+                break
+            new_posts = new_on_page
+            if known_on_page > 0:
+                print(f"（本页 {known_on_page} 条已知，{len(new_on_page)} 条新增）", end=" ")
+        else:
+            new_posts = [p for p in posts if p["id"] not in seen_ids]
 
         if not new_posts:
-            print("本页无新帖（均已抓过），继续下一页...")
+            print("本页无新帖，继续下一页...")
             time.sleep(DELAY)
             continue
 
-        # 检查日期截止（将微博日期格式 "Sat Apr 11..."转为 YYYY-MM-DD 比较）
-        if STOP_BEFORE:
+        # 检查日期截止（全量模式）
+        if STOP_BEFORE and not INCREMENTAL:
             from datetime import datetime as dt
             cutoff_posts = []
             hit_boundary = False
@@ -193,7 +229,7 @@ def main():
 
         time.sleep(DELAY)
 
-    print(f"\n抓取完成，共 {len(all_posts)} 条帖子")
+    print(f"\n{mode}抓取完成，共 {len(all_posts)} 条帖子")
     save_json(all_posts, OUTPUT_JSON)
     save_csv(all_posts, OUTPUT_CSV)
 
